@@ -1,0 +1,27 @@
+<h1 class="text-center">
+    Login
+</h1>
+<div class="my-4 h-100 d-flex flex-column align-items-center justify-content-center" style="gap:20px">
+    <form data-action="login" onsubmit="submitForm(event)">
+        <div class="d-flex flex-column align-items-center" style="gap:20px">
+            <div class="form-group">
+                <input class="form-control" name="username">
+            </div>
+            <div class="form-group">
+                <input class="form-control" name="password" type="password">
+            </div>
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    function login(form) {
+        sendFormData('login', form).then(({ status, token, next }) => {
+            if (status && token) {
+                setToken(token);
+                window.location.replace(next);
+            }
+        });
+    }
+</script>

@@ -1,0 +1,10 @@
+<div>
+    {{> pagesBotsForm bot=bot}}
+</div>
+
+<script>
+  function submit(form) {
+    sendFormData('update', form, {}, true, true)
+
+  }
+</script>
