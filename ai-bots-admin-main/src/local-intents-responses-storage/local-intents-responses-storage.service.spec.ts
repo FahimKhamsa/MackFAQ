@@ -9,7 +9,9 @@ describe('LocalIntentsResponsesStorageService', () => {
       providers: [LocalIntentsResponsesStorageService],
     }).compile();
 
-    service = module.get<LocalIntentsResponsesStorageService>(LocalIntentsResponsesStorageService);
+    service = module.get<LocalIntentsResponsesStorageService>(
+      LocalIntentsResponsesStorageService,
+    );
   });
 
   it('should be defined', () => {

@@ -6,9 +6,10 @@ import { getModelToken } from '@nestjs/sequelize';
 import { LearningSession } from './learnings-sessions.model';
 import { LearningSessionProjectConnection } from './learnings-sessions-project-connection.model';
 
-interface LargeFilesProcessingModuleConfig extends Pick<ModuleMetadata, 'imports'> {
-  paramsFactory: (...args: any[]) => Promise<ILargeFilesProcessingApiConfig >,
-  inject?: any[]
+interface LargeFilesProcessingModuleConfig
+  extends Pick<ModuleMetadata, 'imports'> {
+  paramsFactory: (...args: any[]) => Promise<ILargeFilesProcessingApiConfig>;
+  inject?: any[];
 }
 
 @Module({
@@ -28,15 +29,16 @@ export class LargeFilesProcessingModule {
           inject: config.inject || [],
         },
         {
-          provide: getModelToken(LearningSession), useValue: LearningSession,
+          provide: getModelToken(LearningSession),
+          useValue: LearningSession,
         },
         {
-          provide: getModelToken(LearningSessionProjectConnection), useValue: LearningSessionProjectConnection,
+          provide: getModelToken(LearningSessionProjectConnection),
+          useValue: LearningSessionProjectConnection,
         },
-        LargeFilesProcessingService, 
+        LargeFilesProcessingService,
         TrainingLoaderService,
-      ]
-    }
+      ],
+    };
   }
-
 }

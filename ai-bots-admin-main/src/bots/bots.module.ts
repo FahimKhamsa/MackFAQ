@@ -6,7 +6,10 @@ import { BotModel } from './entities/bot.model';
 
 @Module({
   controllers: [BotsController],
-  providers: [BotsService, {provide: getModelToken (BotModel), useValue: BotModel},],
+  providers: [
+    BotsService,
+    { provide: getModelToken(BotModel), useValue: BotModel },
+  ],
   exports: [BotsService],
 })
 @Global()

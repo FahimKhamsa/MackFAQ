@@ -6,14 +6,12 @@ import { SOPController } from './sop.controller';
 import { SOPDocument } from './entities/sop-document.model';
 
 @Module({
-    imports: [
-        HttpModule,
-    ],
-    controllers: [SOPController],
-    providers: [
-        SOPService,
-        {provide: getModelToken(SOPDocument), useValue: SOPDocument},
-    ],
-    exports: [SOPService],
+  imports: [HttpModule],
+  controllers: [SOPController],
+  providers: [
+    SOPService,
+    { provide: getModelToken(SOPDocument), useValue: SOPDocument },
+  ],
+  exports: [SOPService],
 })
 export class SOPModule {}

@@ -16,10 +16,16 @@ import { SendMailService } from './send-mail.service';
               host: configService.get<string>('MAILER_HOST', 'smtp.gmail.com'),
               secure: false,
               auth: {
-                user: configService.get<string>('MAILER_USER', 'your-email@gmail.com'),
-                pass: configService.get<string>('MAILER_PASS', 'your-app-password'),
+                user: configService.get<string>(
+                  'MAILER_USER',
+                  'your-email@gmail.com',
+                ),
+                pass: configService.get<string>(
+                  'MAILER_PASS',
+                  'your-app-password',
+                ),
               },
-            }
+            },
           },
           defaults: {
             // from: '"Test Test" <qhfqoifuiqoklrfj@gmail.com>',
@@ -41,4 +47,4 @@ import { SendMailService } from './send-mail.service';
   providers: [SendMailService],
   exports: [SendMailService],
 })
-export class SendMailModule { }
+export class SendMailModule {}

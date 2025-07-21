@@ -1,4 +1,4 @@
 export interface PaginatorParameters {
-    page?: number,
-    perPage?: number,
+  page?: number;
+  perPage?: number;
 }

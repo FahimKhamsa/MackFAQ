@@ -36,7 +36,7 @@ export default createStore({
     getSavedKnowledge: state => project_id => state.savedKnowledge[project_id],
     getSavedKnowledgeById: state => project_id => state.savedKnowledge[project_id],
     getSavedKnowledgeByLink: state => project_link => state.savedKnowledgeByLink[project_link],
-    getIsAuthSet: state => true, // Bypass authentication - always return true
+    getIsAuthSet: state => !!getKT(), // Check if JWT token exists
     getMyDocsList: state => state.myDocsList,
     getDocsConnectedToProject: state => project_id => state.myDocsListByProject[project_id] ?? [],
     getProfile: state => state.profile,
@@ -70,7 +70,7 @@ export default createStore({
       for (const file of list) {
         for (const conn of file.connections) {
           state.myDocsListByProject[conn.project_id] ??= [];
-          state.myDocsListByProject[conn.project_id].push(conn);  
+          state.myDocsListByProject[conn.project_id].push(conn);
         }
       }
     },
@@ -84,6 +84,11 @@ export default createStore({
         .then(async result => {
           context.commit('SET_AVAILABLE_PROJECTS', result.data.list || []);
           await context.dispatch('myLoadedFiles');
+        })
+        .catch(error => {
+          console.error('Failed to load projects:', error);
+          // Fallback: create a default project structure
+          context.commit('SET_AVAILABLE_PROJECTS', []);
         });
     },
     updateBotPreprompt(context) {
@@ -109,11 +114,11 @@ export default createStore({
       axiosConfigured.get(API_URL + '/api/saved-knowledge?bot_id=' + API_BOT_ID, { params: { project_link, project_id } })
         .then(result => {
           context.commit(
-            'SET_SAVED_KNOWLEDGE', 
-            { 
-              project_id: result.data.project_id, 
+            'SET_SAVED_KNOWLEDGE',
+            {
+              project_id: result.data.project_id,
               project_link: result.data.project_link,
-              data: result.data.data || '' 
+              data: result.data.data || ''
             }
           );
         });
@@ -159,7 +164,12 @@ export default createStore({
     },
 
     login(context, payload) {
-      return axiosConfigured.post('/auth/login', payload)
+      // Ensure we're sending email field as expected by backend
+      const loginData = {
+        email: payload.email || payload.username, // Support both email and username
+        password: payload.password
+      };
+      return axiosConfigured.post('/auth/login', loginData)
         .then((resp) => {
           setKT(resp.data.token);
           return context.dispatch('loadMe');

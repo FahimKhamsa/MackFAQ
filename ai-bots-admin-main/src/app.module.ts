@@ -19,13 +19,19 @@ import { AIConfigModule } from './ai-config/ai-config.module';
       // load: [configuration,],
     }),
     ApiModule,
-    ServeStaticModule.forRoot({ rootPath: process.env.PUBLIC_FILES_STORAGE, serveRoot: '/storage' }, ),
+    ServeStaticModule.forRoot({
+      rootPath: process.env.PUBLIC_FILES_STORAGE,
+      serveRoot: '/storage',
+    }),
     AuthModule,
     DatabaseModule,
-    BotsModule, MessagesModule, RasaapiModule, LocalIntentsResponsesStorageModule,
+    BotsModule,
+    MessagesModule,
+    RasaapiModule,
+    LocalIntentsResponsesStorageModule,
     ScheduleModule.forRoot(),
     SOPModule,
     AIConfigModule,
   ],
 })
-export class AppModule { }
+export class AppModule {}

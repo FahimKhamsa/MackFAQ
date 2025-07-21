@@ -18,7 +18,14 @@ const routes = [
                 return next({ name: 'home' });
             }
 
-            // Bypass authentication - always allow access
+            // Check authentication for protected routes
+            const token = localStorage.getItem('t');
+            const isAuthRequired = route.matched.some(record => record.meta.authRequired);
+
+            if (isAuthRequired && !token) {
+                return next({ name: 'Login' });
+            }
+
             return next();
         },
         children: [
@@ -54,7 +61,7 @@ const routes = [
                         name: 'chats-history',
                         component: ChatsHistory
                     }
-                
+
                 ],
             },
             {
@@ -96,7 +103,7 @@ const routes = [
                 meta: {
                     authRequired: false
                 }
-            }        
+            }
         ]
     }
 ]

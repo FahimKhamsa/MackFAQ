@@ -7,11 +7,9 @@ import { UsersController } from './users.controller';
 @Module({
   providers: [
     UsersService,
-    {provide: getModelToken (UserModel), useValue: UserModel},
+    { provide: getModelToken(UserModel), useValue: UserModel },
   ],
-  exports: [
-    UsersService,
-  ],
-  controllers: [UsersController]
+  exports: [UsersService],
+  controllers: [UsersController],
 })
 export class UsersModule {}

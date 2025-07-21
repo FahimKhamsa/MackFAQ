@@ -1,13 +1,20 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
-import { IncomingMessage } from 'http';
-import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
+import { UsersService } from 'src/users/users.service';
+
+export interface JwtPayload {
+  sub: number;
+  email: string;
+}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private authService: AuthService, private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private usersService: UsersService,
+  ) {
     super({
       jwtFromRequest: (req: any) => {
         let token = null;
@@ -27,24 +34,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  getAuthCookie(cookie: string) {
-    if (!cookie) return false;
-    return cookie.match(/^(.*)a=([^;]+)(.*)$/)[2];
-  }
-
-  async validate(payload: any) {
-    const user = await this.authService.validateUser(payload);
-
-    if (!user) {
-      return user;
-    }
-
-    if (payload.is_confirmed) {
-      user.loginConfirmed();
-    }
-
-    user.set2FaToken(payload.twofa_token)
-
+  async validate(payload: JwtPayload) {
+    const user = await this.usersService.findById(payload.sub);
     return user;
   }
 }

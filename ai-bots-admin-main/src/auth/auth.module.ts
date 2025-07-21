@@ -7,20 +7,21 @@ import { AuthController } from './auth.controller';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { getJWTConfig } from './config/jwt.config';
 import { UsersModule } from 'src/users/users.module';
-import { SendMailModule } from 'src/send-mail/send-mail.module';
+import { PassportModule } from '@nestjs/passport';
 
 @Module({
   imports: [
-    SendMailModule,
-    UsersModule, 
-    ConfigModule, 
+    PassportModule,
+    UsersModule,
+    ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: getJWTConfig
-    })
+      useFactory: getJWTConfig,
+    }),
   ],
   providers: [AuthService, LocalStrategy, JwtStrategy],
   controllers: [AuthController],
+  exports: [AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}

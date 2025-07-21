@@ -1,55 +1,87 @@
-import { Body, Controller, Get, Header, Headers, Post, Render, Req, Request, Res, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Render,
+  Request,
+  UseGuards,
+  UseInterceptors,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { NamedModuleInterceptor } from 'src/module.interceptor';
-import { UserModel } from 'src/users/entities/user.model';
 import { AuthService } from './auth.service';
-import { I2FaParams, ILoginParams } from './dto/login.dto';
+import { ILoginParams, RefreshTokenDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { LocalAuthGuard } from './local-auth.guard';
-import { UseTwoFa } from './TwoFa.decorator';
 
 @UseInterceptors(NamedModuleInterceptor)
 @Controller('auth')
 export class AuthController {
-    constructor(private authService: AuthService) {
+  constructor(private authService: AuthService) {}
 
-    }
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  async register(@Body() registerDto: RegisterDto) {
+    const result = await this.authService.register(registerDto);
+    return {
+      status: true,
+      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    };
+  }
 
-    @UseTwoFa(false)
-    @UseGuards(LocalAuthGuard)
-    @Post('login')
-    async login(@Body() payload: ILoginParams) {
-        const token = await this.authService.login(payload);
-        return {
-            status: true,
-            token: token,
-            next: '/bots/create',
-        }
-    }
+  @UseGuards(LocalAuthGuard)
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  async login(@Request() req, @Body() loginDto: ILoginParams) {
+    console.log('Login request received:', loginDto);
+    const result = await this.authService.login(loginDto);
+    return {
+      status: true,
+      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      next: '/bots/create',
+    };
+  }
 
-    @UseTwoFa(false)
-    @UseGuards(JwtAuthGuard)
-    @Post('2fa')
-    async twofa(@Body() payload: I2FaParams, @Req() { user }: { user: UserModel }) {
-        const { access_token } = await this.authService.protectLoginTwoFa(user.payload, payload);
-        return {
-            status: true,
-            token: access_token,
-            next: '/bots/create',
-        }
-    }
-    @UseGuards(JwtAuthGuard)
-    @Post('refresh-token')
-    async refreshToken(@Request() req) {
-        const user: UserModel = req.user;
-        if (!user) return;
-        const token = await this.authService.refreshToken(user.payload);
-        return {
-            status: true,
-            token: token,
-        }
-    }
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
+    const result = await this.authService.refreshToken(
+      refreshTokenDto.refreshToken,
+    );
+    return {
+      status: true,
+      accessToken: result.accessToken,
+    };
+  }
 
-    @Get('login')
-    @Render('pages/login')
-    loginForm() { }
+  @UseGuards(JwtAuthGuard)
+  @Get('profile')
+  getProfile(@Request() req) {
+    return {
+      user: req.user,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  async logout(@Request() req) {
+    return {
+      status: true,
+      message: 'Logged out successfully',
+    };
+  }
+
+  @Get('login')
+  @Render('pages/login')
+  loginForm() {
+    return {};
+  }
 }

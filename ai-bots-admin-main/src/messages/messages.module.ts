@@ -4,7 +4,10 @@ import { MessageModel } from './entities/message.model';
 import { MessagesService } from './messages.service';
 
 @Module({
-  providers: [MessagesService, {provide: getModelToken (MessageModel), useValue: MessageModel}],
+  providers: [
+    MessagesService,
+    { provide: getModelToken(MessageModel), useValue: MessageModel },
+  ],
   exports: [MessagesService],
 })
 export class MessagesModule {}

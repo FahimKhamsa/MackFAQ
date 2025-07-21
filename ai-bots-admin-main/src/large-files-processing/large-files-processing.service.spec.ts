@@ -9,7 +9,9 @@ describe('LargeFilesProcessingService', () => {
       providers: [LargeFilesProcessingService],
     }).compile();
 
-    service = module.get<LargeFilesProcessingService>(LargeFilesProcessingService);
+    service = module.get<LargeFilesProcessingService>(
+      LargeFilesProcessingService,
+    );
   });
 
   it('should be defined', () => {

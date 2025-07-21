@@ -9,7 +9,9 @@ describe('LocalIntentsResponsesStorageController', () => {
       controllers: [LocalIntentsResponsesStorageController],
     }).compile();
 
-    controller = module.get<LocalIntentsResponsesStorageController>(LocalIntentsResponsesStorageController);
+    controller = module.get<LocalIntentsResponsesStorageController>(
+      LocalIntentsResponsesStorageController,
+    );
   });
 
   it('should be defined', () => {
