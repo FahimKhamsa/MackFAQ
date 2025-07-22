@@ -1,11 +1,13 @@
 <template>
-  <template v-if="BACKGROUND">
-    <video v-if="BACKGROUND.includes('.mp4')" autoplay muted loop id="backgroundVideo">
-      <source :src="`/${BACKGROUND}`" type="video/mp4">
-    </video>
-    <img v-else :src="`/${BACKGROUND}`" id="backgroundVideo" />
-  </template>
-  <router-view v-if="loaded" />
+  <div id="app" class="app-container">
+    <template v-if="BACKGROUND">
+      <video v-if="BACKGROUND.includes('.mp4')" autoplay muted loop id="backgroundVideo">
+        <source :src="`/${BACKGROUND}`" type="video/mp4">
+      </video>
+      <img v-else :src="`/${BACKGROUND}`" id="backgroundVideo" />
+    </template>
+    <router-view v-if="loaded" />
+  </div>
 </template>
 
 <script>
@@ -92,6 +94,11 @@ export default {
 </script>
 
 <style>
+.app-container {
+  min-height: 100vh;
+  position: relative;
+}
+
 #backgroundVideo {
   position: fixed;
   right: 0;
@@ -100,5 +107,24 @@ export default {
   min-height: 100%;
   z-index: -1;
   object-fit: cover;
+}
+
+/* Modern scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(241, 241, 241, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(193, 193, 193, 0.6);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 168, 168, 0.8);
 }
 </style>

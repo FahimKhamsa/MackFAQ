@@ -10,306 +10,44 @@
 					</p>
 				</div>
 				<div class="header-actions">
-					<AddNewProject @project-created="refreshProjects" />
+					<button @click="showCreateModal = true" class="btn-modern btn-primary">
+						<i class="fas fa-plus"></i>
+						Create Project
+					</button>
 				</div>
 			</div>
 		</div>
 
-		<!-- Main Content Grid -->
-		<div class="workspace-grid">
-			<!-- Projects Panel -->
-			<div class="projects-panel">
-				<div class="panel-header">
-					<h2>Projects</h2>
-					<div class="project-stats">
-						<span class="stat-item">
-							<span class="stat-number">{{
-								projects.length
-							}}</span>
-							<span class="stat-label">Total</span>
-						</span>
-					</div>
-				</div>
-
-				<div class="projects-list">
-					<div
-						v-for="project in projects"
-						:key="project.id"
-						:class="[
-							'project-card',
-							{ selected: selectedProject?.id === project.id },
-						]"
-						@click="selectProject(project)"
-					>
-						<div class="project-info">
-							<h3 class="project-name">{{ project.name }}</h3>
-							<p class="project-meta">
-								<span class="file-count"
-									>{{
-										getProjectFileCount(project.id)
-									}}
-									files</span
-								>
-								<span class="last-updated"
-									>Updated
-									{{ formatDate(project.updatedAt) }}</span
-								>
-							</p>
-						</div>
-
-						<div class="project-actions">
-							<button
-								@click.stop="renameProject(project)"
-								class="btn-modern btn-icon"
-							>
-								<i class="fas fa-edit"></i>
-							</button>
-							<button
-								@click.stop="deleteProject(project)"
-								class="btn-modern btn-icon btn-danger"
-							>
-								<i class="fas fa-trash"></i>
-							</button>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<!-- Project Details Panel -->
-			<div class="project-details" v-if="selectedProject">
-				<!-- File Management Section -->
-				<div class="card">
-					<div class="card-header">
-						<h3>Project Files</h3>
-						<span class="file-count-badge"
-							>{{ projectFiles.length }} files</span
-						>
-					</div>
-
-					<div class="card-body">
-						<!-- Drag & Drop Upload Area -->
-						<div
-							class="upload-zone"
-							:class="{ 'drag-over': isDragOver }"
-							@drop="handleFileDrop"
-							@dragover.prevent="isDragOver = true"
-							@dragleave="isDragOver = false"
-							@click="triggerFileInput"
-						>
-							<div class="upload-content">
-								<div class="upload-icon">
-									<i class="fas fa-cloud-upload-alt"></i>
-								</div>
-								<h4>Drop files here or click to browse</h4>
-								<p>
-									Supports: PDF, XLS, XLSX, TXT, JPG, PNG, GIF
-								</p>
-								<input
-									ref="fileInput"
-									type="file"
-									multiple
-									@change="handleFileSelect"
-									accept=".pdf,.xls,.xlsx,.txt,.jpg,.png,.gif"
-									class="file-input"
-								/>
-								<button class="btn-modern btn-secondary">
-									Choose Files
-								</button>
-							</div>
-						</div>
-
-						<!-- Files Grid -->
-						<div class="files-grid" v-if="projectFiles.length">
-							<div
-								v-for="file in projectFiles"
-								:key="file.id"
-								class="file-card"
-							>
-								<div
-									class="file-icon"
-									:class="getFileIconClass(file.file_type)"
-								>
-									<i :class="getFileIcon(file.file_type)"></i>
-								</div>
-								<div class="file-info">
-									<h4 class="file-name">
-										{{ file.original_name }}
-									</h4>
-									<div class="file-meta">
-										<span class="file-type">{{
-											file.file_type.toUpperCase()
-										}}</span>
-										<span class="file-category">{{
-											file.file_category || "Document"
-										}}</span>
-										<span class="file-size">{{
-											formatFileSize(file.file_size)
-										}}</span>
-									</div>
-								</div>
-								<div class="file-actions">
-									<button
-										@click="downloadFile(file)"
-										class="btn-modern btn-icon"
-									>
-										<i class="fas fa-download"></i>
-									</button>
-									<button
-										@click="deleteFile(file)"
-										class="btn-modern btn-icon btn-danger"
-									>
-										<i class="fas fa-trash"></i>
-									</button>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<!-- AI Configuration Section -->
-				<div class="card" style="margin-top: 2rem">
-					<div class="card-header">
-						<h3>AI Configuration</h3>
-					</div>
-
-					<div class="card-body">
-						<div class="config-form">
-							<!-- Model Selection -->
-							<div class="form-group">
-								<label class="form-label">AI Model</label>
-								<select
-									v-model="aiConfig.selectedModel"
-									@change="updateAIConfig"
-									class="form-select"
-								>
-									<optgroup label="OpenAI">
-										<option value="gpt-3.5-turbo">
-											GPT-3.5 Turbo
-										</option>
-										<option value="gpt-4">GPT-4</option>
-									</optgroup>
-									<optgroup label="OpenRouter">
-										<option value="anthropic/claude-3">
-											Claude 3
-										</option>
-										<option
-											value="meta-llama/llama-2-70b-chat"
-										>
-											Llama 2 70B
-										</option>
-									</optgroup>
-								</select>
-							</div>
-
-							<!-- API Provider -->
-							<div class="form-group">
-								<label class="form-label">API Provider</label>
-								<select
-									v-model="aiConfig.apiProvider"
-									@change="updateAIConfig"
-									class="form-select"
-								>
-									<option value="openai">OpenAI</option>
-									<option value="openrouter">
-										OpenRouter
-									</option>
-								</select>
-							</div>
-
-							<!-- System Prompt -->
-							<div class="form-group">
-								<div
-									class="form-label-row"
-									style="
-										display: flex;
-										justify-content: space-between;
-										align-items: center;
-									"
-								>
-									<label class="form-label"
-										>System Prompt</label
-									>
-									<button
-										@click="togglePromptLock"
-										:class="[
-											'btn-modern',
-											'btn-sm',
-											aiConfig.promptLocked
-												? 'btn-danger'
-												: 'btn-success',
-										]"
-									>
-										<i
-											:class="
-												aiConfig.promptLocked
-													? 'fas fa-lock'
-													: 'fas fa-unlock'
-											"
-										></i>
-										{{
-											aiConfig.promptLocked
-												? "Unlock"
-												: "Lock"
-										}}
-									</button>
-								</div>
-								<textarea
-									v-model="aiConfig.systemPrompt"
-									:disabled="aiConfig.promptLocked"
-									@blur="updateAIConfig"
-									class="form-textarea"
-									rows="4"
-									placeholder="Enter your custom AI system prompt..."
-								>
-								</textarea>
-							</div>
-
-							<!-- SOP Integration -->
-							<div class="form-group">
-								<label class="checkbox-label">
-									<input
-										type="checkbox"
-										v-model="aiConfig.includeSOP"
-										@change="updateAIConfig"
-									/>
-									<span class="checkbox-text">
-										Include SOP Library
-										<small
-											>Cross-reference with company SOPs
-											for compliance checking</small
-										>
-									</span>
-								</label>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<!-- Empty State -->
-			<div v-else class="empty-state">
-				<div class="empty-content">
-					<div class="empty-icon">
-						<i class="fas fa-folder-open"></i>
-					</div>
-					<h3>Select a Project</h3>
-					<p>
-						Choose a project from the left panel to view and manage
-						its files and AI configuration.
-					</p>
-				</div>
+		<!-- Main Content -->
+		<div class="workspace-content">
+			<!-- Projects Table -->
+			<div class="projects-section">
+				<ProjectsTable 
+					:projects="projects"
+					:project-file-counts="projectFileCounts"
+					@action-triggered="handleTableAction"
+				/>
 			</div>
 		</div>
+
+		<!-- Create Project Modal -->
+		<CreateProjectModal 
+			:show="showCreateModal" 
+			@close="showCreateModal = false"
+			@project-created="onProjectCreated"
+		/>
 	</div>
 </template>
 
 <script>
 import axios from "@/axios";
-import AddNewProject from "@/components/Projects/AddNewProject.vue";
+import CreateProjectModal from "@/components/Projects/CreateProjectModal.vue";
+import ProjectsTable from "@/components/Projects/ProjectsTable.vue";
 
 export default {
 	components: {
-		AddNewProject,
+		CreateProjectModal,
+		ProjectsTable,
 	},
 	data() {
 		return {
@@ -327,7 +65,19 @@ export default {
 			},
 			fileUploadProgress: {},
 			isLoading: false,
+			showCreateModal: false,
 		};
+	},
+	computed: {
+		projectFileCounts() {
+			// Calculate file counts for each project
+			const counts = {};
+			this.projects.forEach(project => {
+				const docsConnected = this.$store.getters.getDocsConnectedToProject(project.id);
+				counts[project.id] = docsConnected.length;
+			});
+			return counts;
+		}
 	},
 	async mounted() {
 		await this.loadProjects();
@@ -612,6 +362,32 @@ export default {
 				this.$toast.error("Failed to download file");
 			}
 		},
+
+		// Modal event handler
+		async onProjectCreated() {
+			await this.loadProjects();
+		},
+
+		// Table action handler
+		handleTableAction({ action, project }) {
+			switch (action) {
+				case 'rename':
+					this.renameProject(project);
+					break;
+				case 'upload':
+					// Select the project and trigger file upload
+					this.selectProject(project);
+					this.$nextTick(() => {
+						this.triggerFileInput();
+					});
+					break;
+				case 'delete':
+					this.deleteProject(project);
+					break;
+				default:
+					console.log(`Action ${action} not implemented yet`);
+			}
+		},
 	},
 };
 </script>
@@ -793,6 +569,7 @@ export default {
 	font-weight: 600;
 }
 
+
 /* Responsive Design */
 @media (max-width: 640px) {
 	.files-grid {
@@ -811,6 +588,25 @@ export default {
 			h4 {
 				font-size: 1rem;
 			}
+		}
+	}
+
+	.modal-content {
+		width: 95%;
+		margin: 1rem;
+	}
+
+	.modal-header,
+	.modal-body,
+	.modal-footer {
+		padding: 1rem;
+	}
+
+	.modal-footer {
+		flex-direction: column;
+
+		.btn-modern {
+			width: 100%;
 		}
 	}
 }

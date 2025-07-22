@@ -1,31 +1,65 @@
 <template>
-    <div class="page-train">
-        <div class="center">
-            <label class="field" v-if="PROJECT_SHOW">
-                <div style="display: flex; gap: 20px;">
-                    <h1 class="title">{{ $t('Project: ') }}</h1>
-                    <label class="select-container" style="height: 10px;width: 100%;">
-                    <ListOfProjects :allowEmpty="false" v-model="project_id"></ListOfProjects>
-                    </label>
+    <div class="modern-chats-page">
+        <div class="chats-header">
+            <div class="header-content">
+                <h1>Chat History</h1>
+                <p class="subtitle">Review and manage your conversation history</p>
+            </div>
+        </div>
+
+        <div class="chats-content">
+            <!-- Project Selection Card -->
+            <div class="card" v-if="PROJECT_SHOW">
+                <div class="card-header">
+                    <h3><i class="fas fa-folder-open"></i> Project Selection</h3>
                 </div>
-            </label>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label class="form-label">Select Project</label>
+                        <ListOfProjects :allowEmpty="false" v-model="project_id"></ListOfProjects>
+                    </div>
+                </div>
+            </div>
 
-            <div class="rounded-container">
+            <!-- Chat History Card -->
+            <div class="card" v-if="project_id">
+                <div class="card-header">
+                    <h3><i class="fas fa-comments"></i> Conversation History</h3>
+                    <span class="chat-count" v-if="allChatsList">{{ allChatsList.length }} conversations</span>
+                </div>
+                <div class="card-body">
+                    <div class="chats-grid" v-if="allChatsList && allChatsList.length">
+                        <div 
+                            v-for="chat in allChatsList" 
+                            :key="chat.id"
+                            class="chat-card"
+                            @click="() => openChatHistoryModal(chat.id)"
+                        >
+                            <div class="chat-preview">
+                                <h4 class="chat-title">{{ chat.messages_slug }}</h4>
+                                <p class="chat-date">{{ formatDate(chat.createdAt) }}</p>
+                            </div>
+                            <div class="chat-actions">
+                                <i class="fas fa-chevron-right"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else-if="project_id" class="empty-state">
+                        <div class="empty-content">
+                            <i class="fas fa-comments empty-icon"></i>
+                            <h3>No Conversations Yet</h3>
+                            <p>Start chatting to see your conversation history here.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                <b style="font-size: larger; margin-rigth: 18px">Chat id</b>
-                <div style="height: 350px; overflow-y: auto;scrollbar-width: thin;">
-                    <table v-if="project_id" class="chats-list">
-                        <tbody>
-                            <tr v-for="row of allChatsList" :key="row.id">
-                                <td>
-                                    <button @click="() => openChatHistoryModal(row.id)"
-                                        style="text-decoration: none; color:black; cursor: pointer;text-align: left;">
-                                        {{ row.messages_slug }}
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+            <!-- Empty Project State -->
+            <div v-else class="empty-state">
+                <div class="empty-content">
+                    <i class="fas fa-folder-open empty-icon"></i>
+                    <h3>Select a Project</h3>
+                    <p>Choose a project above to view its conversation history.</p>
                 </div>
             </div>
         </div>
@@ -174,6 +208,11 @@ export default {
         },
     },
     methods: {
+        formatDate(dateString) {
+            if (!dateString) return 'Unknown date';
+            const date = new Date(dateString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        },
         async openChatHistoryModal(chatId) {
             this.showChat = false;
             this.qaEditor = false;
@@ -274,6 +313,198 @@ Are you sure you want to upload the file?`)) {
 </script>
 
 <style lang="scss">
+.modern-chats-page {
+  min-height: 100vh;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+
+  .chats-header {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+
+    .header-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      text-align: center;
+
+      h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .subtitle {
+        margin: 0;
+        font-size: 1.125rem;
+        color: var(--gray-600);
+      }
+    }
+  }
+
+  .chats-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: grid;
+    gap: 2rem;
+  }
+
+  .card {
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      h3 {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0;
+
+        i {
+          color: var(--primary-blue);
+        }
+      }
+
+      .chat-count {
+        background: var(--primary-blue);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+    }
+  }
+
+  .chats-grid {
+    display: grid;
+    gap: 1rem;
+
+    .chat-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        border-color: var(--primary-blue);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+        transform: translateY(-2px);
+      }
+
+      .chat-preview {
+        flex: 1;
+
+        .chat-title {
+          margin: 0 0 0.25rem 0;
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--gray-900);
+          line-height: 1.4;
+        }
+
+        .chat-date {
+          margin: 0;
+          font-size: 0.875rem;
+          color: var(--gray-600);
+        }
+      }
+
+      .chat-actions {
+        color: var(--gray-400);
+        font-size: 1.25rem;
+        transition: all 0.2s ease;
+      }
+
+      &:hover .chat-actions {
+        color: var(--primary-blue);
+        transform: translateX(4px);
+      }
+    }
+  }
+
+  .empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    padding: 2rem;
+
+    .empty-content {
+      text-align: center;
+      max-width: 400px;
+
+      .empty-icon {
+        font-size: 4rem;
+        color: var(--gray-300);
+        margin-bottom: 1rem;
+      }
+
+      h3 {
+        margin: 0 0 0.5rem 0;
+        color: var(--gray-700);
+        font-size: 1.25rem;
+        font-weight: 600;
+      }
+
+      p {
+        margin: 0;
+        color: var(--gray-500);
+        font-size: 0.875rem;
+        line-height: 1.5;
+      }
+    }
+  }
+}
+
+// Responsive Design
+@media (max-width: 1024px) {
+  .modern-chats-page {
+    .chats-content {
+      padding: 0 1rem;
+    }
+
+    .chats-header .header-content {
+      padding: 0 1rem;
+
+      h1 {
+        font-size: 2rem;
+      }
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .modern-chats-page {
+    .chats-header .header-content h1 {
+      font-size: 1.75rem;
+    }
+
+    .chats-grid .chat-card {
+      padding: 1rem;
+
+      .chat-preview .chat-title {
+        font-size: 0.875rem;
+      }
+    }
+  }
+}
+
+// Legacy styles for modal
 table.chats-list {
     td {
         padding: 5px 0px;
@@ -475,4 +706,4 @@ tr {
 tr:last-child {
   border-bottom: none;
 }
-</style> 
+</style>

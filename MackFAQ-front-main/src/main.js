@@ -8,22 +8,22 @@ import './assets/css/style.scss';
 import i18next from 'i18next';
 import I18NextVue from 'i18next-vue';
 import { library } from "@fortawesome/fontawesome-svg-core";
-import { faClose, faCross, faEdit, faFile, faTrash, faCopy } from "@fortawesome/free-solid-svg-icons";
+import { faClose, faCross, faEdit, faFile, faTrash, faCopy, faEllipsisH } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import ToastPlugin from 'vue-toast-notification';
 import 'vue-toast-notification/dist/theme-bootstrap.css';
 
-library.add(faEdit, faTrash, faClose, faFile, faCopy);
+library.add(faEdit, faTrash, faClose, faFile, faCopy, faEllipsisH);
 
 i18next.init({
-  	lng: 'en',
-  	resources: {
-    	en: { translation: locales.en },
-    	fr: { translation: locales.fr }
-  	},
+	lng: 'en',
+	resources: {
+		en: { translation: locales.en },
+		fr: { translation: locales.fr }
+	},
 });
 
-const app = createApp(App).component("font-awesome-icon", FontAwesomeIcon).use(I18NextVue, {i18next}).use(store).use(router);
+const app = createApp(App).component("font-awesome-icon", FontAwesomeIcon).use(I18NextVue, { i18next }).use(store).use(router);
 app.use(ToastPlugin);
 
 app.config.globalProperties.BACKGROUND_VIDEO = process.env.VUE_APP_BACKGROUND_VIDEO;

@@ -13,6 +13,13 @@ export function getKT() {
   return localStorage.getItem(KT);
 }
 
+function setRefreshToken(t) {
+  localStorage.setItem('refreshToken', t);
+}
+function getRefreshToken() {
+  return localStorage.getItem('refreshToken');
+}
+
 export default createStore({
   state: {
     availableProjects: [],
@@ -94,20 +101,34 @@ export default createStore({
     updateBotPreprompt(context) {
       axiosConfigured.get(API_URL + '/api/bot-prompt?bot_id=' + API_BOT_ID)
         .then(result => {
-          context.commit('SET_CURRENT_BOT_DATA', result.data.data || null);
+          context.commit('SET_CURRENT_BOT_DATA', result?.data?.data || null);
+        })
+        .catch(error => {
+          console.error('Failed to load bot prompt:', error);
+          context.commit('SET_CURRENT_BOT_DATA', null);
         });
     },
     updateProjectTrainingData(context, { project_id }) {
       axiosConfigured.get(API_URL + '/local-intents-responses-storage/projects/knowledge-base?bot_id=' + API_BOT_ID + '&project_id=' + project_id)
         .then(async result => {
-          context.commit('SET_PROJECT_TRAINING_DATA', { project_id, data: result.data.data || '' });
+          context.commit('SET_PROJECT_TRAINING_DATA', { project_id, data: result?.data?.data || '' });
           await context.dispatch('myLoadedFiles');
+        })
+        .catch(error => {
+          console.error('Failed to load training data:', error);
+          context.commit('SET_PROJECT_TRAINING_DATA', { project_id, data: '' });
         });
     },
     updateProjectConversationsList(context, { project_id }) {
       axiosConfigured.get(API_URL + '/api/list-of-conversations?bot_id=' + API_BOT_ID + '&project_id=' + project_id)
         .then(result => {
-          context.commit('SET_PROJECT_CONVERSATIONS_LIST', { project_id, data: result.data.data || '' });
+          const data = result?.data?.data || {};
+          context.commit('SET_PROJECT_CONVERSATIONS_LIST', { project_id, data });
+        })
+        .catch(error => {
+          console.error('Failed to load conversations list:', error);
+          // Fallback: set empty conversations list
+          context.commit('SET_PROJECT_CONVERSATIONS_LIST', { project_id, data: {} });
         });
     },
     updateProjectSavedKnowledge(context, { project_id, project_link }) {
@@ -135,13 +156,21 @@ export default createStore({
     updateProjectConversation(context, { conversationId }) {
       return axiosConfigured.get(API_URL + '/api/conversation-history?conversationId=' + conversationId)
         .then(result => {
-          context.commit('SET_PROJECT_CONVERSATION_DATA', { conversationId, data: result.data.data || '' });
+          context.commit('SET_PROJECT_CONVERSATION_DATA', { conversationId, data: result?.data?.data || '' });
+        })
+        .catch(error => {
+          console.error('Failed to load conversation:', error);
+          context.commit('SET_PROJECT_CONVERSATION_DATA', { conversationId, data: '' });
         });
     },
     myLoadedFiles(context) {
       return axiosConfigured.get(API_URL + '/api/my-docs?bot_id=' + API_BOT_ID)
         .then(result => {
-          context.commit('SET_MY_DOCS', result.data.data ?? []);
+          context.commit('SET_MY_DOCS', result?.data?.data ?? []);
+        })
+        .catch(error => {
+          console.error('Failed to load my docs:', error);
+          context.commit('SET_MY_DOCS', []);
         });
     },
 
@@ -171,7 +200,15 @@ export default createStore({
       };
       return axiosConfigured.post('/auth/login', loginData)
         .then((resp) => {
-          setKT(resp.data.token);
+          // Store both access and refresh tokens
+          const accessToken = resp.data.accessToken || resp.data.token;
+          const refreshToken = resp.data.refreshToken;
+
+          setKT(accessToken);
+          if (refreshToken) {
+            setRefreshToken(refreshToken);
+          }
+
           return context.dispatch('loadMe');
         });
     },
@@ -186,13 +223,32 @@ export default createStore({
 
     logOut(context) {
       setKT(null);
+      setRefreshToken(null);
       return context.dispatch("loadMe");
     },
 
     refreshAuth(context) {
-      return axiosConfigured.post(API_URL + '/auth/refresh-token')
+      const refreshToken = getRefreshToken();
+      if (!refreshToken) {
+        console.log('No refresh token available');
+        return Promise.resolve();
+      }
+
+      return axiosConfigured.post('/auth/refresh', { refreshToken })
         .then((resp) => {
-          setKT(resp.data.token);
+          // Store both new tokens
+          const accessToken = resp.data.accessToken || resp.data.token;
+          const newRefreshToken = resp.data.refreshToken;
+
+          setKT(accessToken);
+          if (newRefreshToken) {
+            setRefreshToken(newRefreshToken);
+          }
+        })
+        .catch((error) => {
+          console.error('Token refresh failed:', error);
+          // Don't clear token on refresh failure, let user continue with current token
+          // The token might still be valid for some time
         });
     },
 

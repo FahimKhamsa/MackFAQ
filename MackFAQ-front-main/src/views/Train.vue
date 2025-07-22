@@ -1,8 +1,15 @@
 <template>
-  <div class="page-train">
-    <div class="center">
-      <lang v-if="LANGUAGE_CHANGE_SHOW" />
+  <div class="modern-train-page">
+    <div class="train-header">
+      <div class="header-content">
+        <h1>AI Training Center</h1>
+        <p class="subtitle">Configure prompts, upload documents, and train your AI assistant</p>
+        <lang v-if="LANGUAGE_CHANGE_SHOW" />
+      </div>
+    </div>
 
+    <div class="train-content">
+      <!-- Success/Error Messages -->
       <div class="success message" v-if="message">
         <div class="item" v-for="(item, index) in message" :key="index">
           <span class="close" @click="closeMessage(index)">x</span>
@@ -25,162 +32,204 @@
           <div>{{ $t("error") }}!</div>
         </div>
       </div>
-      <form action="#" class="form" ref="form" @submit.prevent="updatePrePrompt">
-        <label class="field" v-if="GLOBAL_PROMPT_SHOW">
-          <div class="text">{{ $t(PROMPT_LABEL_NAME) }}</div>
-          <textarea
-            style="min-height: 320px"
-            :placeholder="$t('text')"
-            v-model.trim="prompt_prefix"
-          ></textarea>
-        </label>
 
-        <label class="field" v-if="PROMPT_FOR_ANSWERS_SHOW">
-          <div class="text">{{ $t(PROMPT_FOR_ANSWERS_LABEL_NAME) }}</div>
-          <Textarea
-            style="min-height: auto"
-            :placeholder="$t('text')"
-            v-model="prompt_answer_pre_prefix"
-          ></Textarea>
-        </label>
-
-        <div class="rounded-container">
-          <label
-            class="field field-file"
-            :style="[PROJECT_SHOW ? {} : { display: 'none' }]"
-          >
-            <!-- <div class="text">{{ $t("Project: ") }}</div> -->
-            <ListOfProjects :allowEmpty="true" v-model="project_id"></ListOfProjects>
-          </label>
-
-          <div v-if="project_id" class="rounded-container-small">
-            <label class="field project-link">
-              <div class="">Project's Public Chat URL:</div>
-              <span style="color: blue">{{ project_link }}</span>
-            </label>
-            <button class="copy" @click.prevent="copyTextToClipboard(project_link)">
-              <font-awesome-icon icon="copy" />
-            </button>
+      <!-- Main Content Grid -->
+      <div class="train-grid">
+        <!-- Project Selection Card -->
+        <div class="card" v-if="PROJECT_SHOW">
+          <div class="card-header">
+            <h3><i class="fas fa-folder-open"></i> Project Selection</h3>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">Select Project</label>
+              <ListOfProjects :allowEmpty="true" v-model="project_id"></ListOfProjects>
+            </div>
+            
+            <div v-if="project_id" class="project-url-section">
+              <label class="form-label">Public Chat URL</label>
+              <div class="url-display">
+                <span class="url-text">{{ project_link }}</span>
+                <button class="btn-modern btn-secondary btn-sm" @click.prevent="copyTextToClipboard(project_link)">
+                  <i class="fas fa-copy"></i>
+                  Copy
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <label v-if="PROJECT_SHOW || DEFAULT_PROJECT_ID" class="field">
-          <textarea
-            style="min-height: 320px"
-            :placeholder="$t('prompt_for_project_prefix')"
-            v-model.trim="project_prompt_prefix"
-          ></textarea>
-        </label>
+        <!-- AI Prompts Configuration Card -->
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fas fa-robot"></i> AI Prompts Configuration</h3>
+          </div>
+          <div class="card-body">
+            <form @submit.prevent="updatePrePrompt" class="prompts-form">
+              <div class="form-group" v-if="GLOBAL_PROMPT_SHOW">
+                <label class="form-label">{{ $t(PROMPT_LABEL_NAME) }}</label>
+                <textarea
+                  class="form-textarea"
+                  rows="8"
+                  :placeholder="$t('text')"
+                  v-model.trim="prompt_prefix"
+                ></textarea>
+              </div>
 
-        <div class="tx-c mt15">
-          <input
-            style="min-width: 100%"
-            type="submit"
-            :value="$t('Save prompts')"
-            ref="submit"
-            class="btn"
-          />
+              <div class="form-group" v-if="PROMPT_FOR_ANSWERS_SHOW">
+                <label class="form-label">{{ $t(PROMPT_FOR_ANSWERS_LABEL_NAME) }}</label>
+                <Textarea
+                  :placeholder="$t('text')"
+                  v-model="prompt_answer_pre_prefix"
+                ></Textarea>
+              </div>
+
+              <div class="form-group" v-if="PROJECT_SHOW || DEFAULT_PROJECT_ID">
+                <label class="form-label">Project-Specific Prompt</label>
+                <textarea
+                  class="form-textarea"
+                  rows="8"
+                  :placeholder="$t('prompt_for_project_prefix')"
+                  v-model.trim="project_prompt_prefix"
+                ></textarea>
+              </div>
+
+              <button type="submit" class="btn-modern btn-primary" ref="submit">
+                <i class="fas fa-save"></i>
+                {{ $t('Save prompts') }}
+              </button>
+            </form>
+          </div>
         </div>
-      </form>
-    </div>
-    <form
-      v-if="UPLOADING_FAQ_SHOW"
-      action="#"
-      class="form"
-      ref="form"
-      @submit.prevent="sendForm"
-    >
-      <div style="overflow-x: auto;">
-        <!-- <table>
-                        <thead>
-                            <tr><th>File</th><th>Date</th><th>Delete</th></tr>
-                        </thead>
-                        <tr v-for="(item, index) in savedFiles" :key="index">
-                            <td>{{ item.file_name }}</td>
-                            <td style="white-space: nowrap;">{{ item.createdAt.split('T')[0] }}</td>
-                            <td style="width: 10px;" @click="() => deleteUploadedKnowledge(item.id)"><font-awesome-icon icon="trash"/></td>
-                        </tr>
-                    </table> -->
-        <table v-if="!reload && availableFiles && availableFiles.length" style="min-width: fit-content; margin-left: auto; margin-right: auto">
-          <thead>
-            <tr>
-              <th>File</th>
-              <th>Date</th>
-              <th>Delete</th>
-              <th style="white-space: nowrap" v-if="this.project_id && this.project"></th>
-            </tr>
-          </thead>
-          <tr v-for="(item, index) in availableFiles" :key="item.id">
-            <td>{{ item.file_name }}</td>
-            <td style="white-space: nowrap">{{ item.createdAt.split("T")[0] }}</td>
-            <td style="width: 5px" @click="() => deleteUploadedKnowledge(item.id)">
-              <font-awesome-icon icon="trash" />
-            </td>
-            <td style="white-space: nowrap" v-if="this.project  && this.project_id" :key="this.checks[item.id]">
-            Use in {{ this.project.name }}:
-              <input
-                v-model="this.checks[item.id]"
-                @change="
-                  () =>
-                    $store.dispatch('updateFileConnection', {
-                      project_id: this.project_id,
-                      learning_session_id: item.id,
-                      status: this.checks[item.id],
-                    })
-                "
-                type="checkbox"
-              />
-            </td>
-            <!-- <td v-if="this.project_id && item.is_connected_to_current" style="width: 10px;" @click="() => $store.dispatch('updateFileConnection', { project_id: this.project_id, learning_session_id: item.id, status: false })"><button class="btn" style="    white-space: nowrap;">Remove from the Current Project</button></td>
-                            <td v-if="this.project_id && !item.is_connected_to_current" style="width: 10px;" @click="() => $store.dispatch('updateFileConnection', { project_id: this.project_id, learning_session_id: item.id, status: true })"><button class="btn" style="    white-space: nowrap;">Add to the Current Project</button></td> -->
-          </tr>
-        </table>
       </div>
-      <template v-if="TEXT_FAQ_SHOW">
-        <label class="field">
-          <div style="display: flex">
-            <div class="text">{{ $t("data") }}</div>
+    </div>
+      <!-- Document Management Section -->
+      <div class="train-grid" v-if="UPLOADING_FAQ_SHOW">
+        <!-- File Upload Card -->
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fas fa-cloud-upload-alt"></i> Document Upload</h3>
+          </div>
+          <div class="card-body">
+            <form @submit.prevent="sendForm" ref="form" class="upload-form">
+              <div class="upload-section">
+                <div class="sample-link">
+                  <a href="/Sample.csv" class="btn-modern btn-secondary btn-sm">
+                    <i class="fas fa-download"></i>
+                    Download Sample CSV
+                  </a>
+                </div>
+                
+                <div class="file-upload-area">
+                  <input
+                    type="file"
+                    name="file"
+                    ref="file"
+                    accept=".pdf, .csv"
+                    @change="chooseFile"
+                    class="file-input"
+                    id="fileInput"
+                  />
+                  <label for="fileInput" class="file-upload-label">
+                    <div class="upload-icon">
+                      <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <div class="upload-text">
+                      <h4>Choose File to Upload</h4>
+                      <p>Supports PDF and CSV files</p>
+                      <div class="file-name" v-if="nameFile !== 'FAQ File<br> pdf, csv.'" v-html="nameFile"></div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Training Data Editor Card -->
+        <div class="card" v-if="TEXT_FAQ_SHOW">
+          <div class="card-header">
+            <h3><i class="fas fa-edit"></i> Training Data Editor</h3>
             <button
               @click.prevent="clearTraining()"
-              class="ml-auto"
-              style="
-                margin-bottom: 12px;
-                margin-left: auto;
-                font-size: larger;
-                cursor: pointer;
-              "
+              class="btn-modern btn-danger btn-sm"
             >
-              <FontAwesomeIcon icon="trash"></FontAwesomeIcon>
+              <i class="fas fa-trash"></i>
+              Clear All
             </button>
           </div>
-          <QAEditor v-model="form.text" :project_id="this.project_id"></QAEditor>
-        </label>
-
-        <div class="tx-c mt15">
-          <input type="submit" :value="$t('train')" ref="submit" class="btn" />
-        </div>
-      </template>
-
-      <label style="margin-left: auto; margin-right: auto; color: black;" class="field field-file">
-        <div style="display: flex; gap: 10px">
-          <a style="color: blue" href="/Sample.csv">Sample.csv</a>
-        </div>
-        <input
-          type="file"
-          name="file"
-          ref="file"
-          accept=".pdf, .csv"
-          @change="chooseFile"
-        />
-        <div class="file">
-          <div class="button">
-            <img src="@/assets/img/ic-download.svg" alt="" />
-            <span>{{ $t("upload") }}</span>
+          <div class="card-body">
+            <div class="editor-section">
+              <QAEditor v-model="form.text" :project_id="this.project_id"></QAEditor>
+              <button 
+                type="submit" 
+                @click="sendForm"
+                class="btn-modern btn-primary"
+                ref="submit"
+              >
+                <i class="fas fa-brain"></i>
+                {{ $t('train') }}
+              </button>
+            </div>
           </div>
-          <div class="name" v-html="nameFile"></div>
         </div>
-      </label>
-    </form>
+
+        <!-- Available Files Card -->
+        <div class="card full-width" v-if="!reload && availableFiles && availableFiles.length">
+          <div class="card-header">
+            <h3><i class="fas fa-files"></i> Available Documents</h3>
+            <span class="file-count">{{ availableFiles.length }} files</span>
+          </div>
+          <div class="card-body">
+            <div class="files-table-container">
+              <table class="modern-table">
+                <thead>
+                  <tr>
+                    <th>File Name</th>
+                    <th>Upload Date</th>
+                    <th v-if="this.project_id && this.project">Use in {{ this.project.name }}</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(item, index) in availableFiles" :key="item.id">
+                    <td class="file-name-cell">
+                      <i class="fas fa-file-alt file-icon"></i>
+                      {{ item.file_name }}
+                    </td>
+                    <td class="date-cell">{{ item.createdAt.split("T")[0] }}</td>
+                    <td v-if="this.project && this.project_id" class="checkbox-cell" :key="this.checks[item.id]">
+                      <label class="checkbox-label">
+                        <input
+                          v-model="this.checks[item.id]"
+                          @change="
+                            () =>
+                              $store.dispatch('updateFileConnection', {
+                                project_id: this.project_id,
+                                learning_session_id: item.id,
+                                status: this.checks[item.id],
+                              })
+                          "
+                          type="checkbox"
+                        />
+                        <span class="checkmark"></span>
+                      </label>
+                    </td>
+                    <td class="actions-cell">
+                      <button
+                        @click="() => deleteUploadedKnowledge(item.id)"
+                        class="btn-modern btn-danger btn-sm"
+                      >
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
   </div>
 </template>
 
@@ -526,130 +575,397 @@ Are you sure you want to upload the file?`)
 </script>
 
 <style lang="scss">
-.rounded-container-small {
-  background: #c2d3e5;
-  border-radius: 27px;
-  padding: 0.3rem 0.5rem 0.3rem 1.3rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13px;
+.modern-train-page {
+  min-height: 100vh;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
 
-  .copy {
-    border-radius: 50px;
-    border: 1px solid black;
-    min-width: 30px;
-    height: 30px;
-  }
-}
+  .train-header {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 2rem 0;
+    margin-bottom: 2rem;
 
-textarea {
-  margin-top: 20px;
-	background: #c2d3e5;
-	border-radius: 27px;
-	padding: 1rem 0.9rem 1rem 0.9rem;
-	display: flex;
-	font-size: 13px;
-	flex-direction: column;
-	background-color: #d8dee3;
-	gap: 20px;
-	box-shadow: 5px 5px 5px #93a1b0bf, -3px -3px rgba(255, 255, 255, 0.377);
-  border: none!important;
-  outline: none!important;
-  color: black!important;
-}
+    .header-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      text-align: center;
 
-.border-red {
-  border: red 2px solid;
-  padding: 2px;
-  margin: 2px;
-}
+      h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
 
-.message {
-  position: fixed;
-  right: -300px;
-  bottom: 15px;
-  max-width: 300px;
-  width: 100%;
-  animation: right 0.5s forwards;
-
-  .item {
-    background: rgba(0, 0, 0, 0.8);
-    padding: 10px;
-    border-radius: 12px;
-    border: 1px solid var(--colAkcent);
-    font-size: 14px;
-    color: #fff;
-    position: relative;
-
-    div + div {
-      margin-top: 5px;
-    }
-
-    & + .item {
-      margin-top: 10px;
+      .subtitle {
+        margin: 0 0 1rem 0;
+        font-size: 1.125rem;
+        color: var(--gray-600);
+      }
     }
   }
 
-  .item .close {
-    position: absolute;
-    top: 5px;
-    right: 10px;
-    cursor: pointer;
-    color: #fff;
-    font-size: 15px;
-    line-height: 1;
-    cursor: pointer;
-    transition: all 0.3s;
+  .train-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
 
-    &:hover {
-      color: var(--colAkcent);
+  .train-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+
+    .card {
+      &.full-width {
+        grid-column: 1 / -1;
+      }
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        h3 {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin: 0;
+
+          i {
+            color: var(--primary-blue);
+          }
+        }
+
+        .file-count {
+          background: var(--primary-blue);
+          color: white;
+          padding: 0.25rem 0.75rem;
+          border-radius: 1rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+        }
+      }
     }
   }
 
-  &.error {
+  // Project URL Section
+  .project-url-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--gray-200);
+
+    .url-display {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      padding: 0.75rem;
+      background: var(--gray-50);
+      border-radius: 0.375rem;
+      border: 1px solid var(--gray-200);
+
+      .url-text {
+        flex: 1;
+        font-family: monospace;
+        font-size: 0.875rem;
+        color: var(--primary-blue);
+        word-break: break-all;
+      }
+    }
+  }
+
+  // File Upload Styling
+  .upload-section {
+    .sample-link {
+      margin-bottom: 1.5rem;
+    }
+
+    .file-upload-area {
+      .file-input {
+        display: none;
+      }
+
+      .file-upload-label {
+        display: block;
+        padding: 2rem;
+        border: 2px dashed var(--gray-300);
+        border-radius: 0.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+          border-color: var(--primary-blue);
+          background: rgba(37, 99, 235, 0.05);
+        }
+
+        .upload-icon {
+          font-size: 3rem;
+          color: var(--gray-400);
+          margin-bottom: 1rem;
+        }
+
+        .upload-text {
+          h4 {
+            margin: 0 0 0.5rem 0;
+            color: var(--gray-700);
+            font-size: 1.125rem;
+          }
+
+          p {
+            margin: 0 0 1rem 0;
+            color: var(--gray-500);
+            font-size: 0.875rem;
+          }
+
+          .file-name {
+            font-weight: 600;
+            color: var(--primary-blue);
+          }
+        }
+      }
+    }
+  }
+
+  // Editor Section
+  .editor-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  // Modern Table
+  .files-table-container {
+    overflow-x: auto;
+  }
+
+  .modern-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+    thead {
+      background: var(--gray-50);
+
+      th {
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--gray-700);
+        font-size: 0.875rem;
+        border-bottom: 1px solid var(--gray-200);
+      }
+    }
+
+    tbody {
+      tr {
+        border-bottom: 1px solid var(--gray-100);
+        transition: background-color 0.15s ease;
+
+        &:hover {
+          background: var(--gray-50);
+        }
+
+        &:last-child {
+          border-bottom: none;
+        }
+      }
+
+      td {
+        padding: 1rem;
+        font-size: 0.875rem;
+
+        &.file-name-cell {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+
+          .file-icon {
+            color: var(--primary-blue);
+          }
+        }
+
+        &.date-cell {
+          color: var(--gray-600);
+          white-space: nowrap;
+        }
+
+        &.checkbox-cell {
+          text-align: center;
+
+          .checkbox-label {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+
+            input[type="checkbox"] {
+              margin: 0;
+              margin-right: 0.5rem;
+            }
+          }
+        }
+
+        &.actions-cell {
+          text-align: center;
+        }
+      }
+    }
+  }
+
+  // Messages (keep existing animation)
+  .message {
+    position: fixed;
+    right: -300px;
+    bottom: 15px;
+    max-width: 300px;
+    width: 100%;
+    animation: right 0.5s forwards;
+    z-index: 1000;
+
     .item {
-      border-color: red;
-      color: red;
+      background: rgba(0, 0, 0, 0.9);
+      padding: 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--primary-blue);
+      font-size: 0.875rem;
+      color: #fff;
+      position: relative;
+      backdrop-filter: blur(10px);
+
+      div + div {
+        margin-top: 0.5rem;
+      }
+
+      & + .item {
+        margin-top: 0.5rem;
+      }
     }
 
     .item .close {
-      color: red;
+      position: absolute;
+      top: 0.5rem;
+      right: 0.75rem;
+      cursor: pointer;
+      color: #fff;
+      font-size: 1rem;
+      line-height: 1;
+      transition: all 0.3s;
 
       &:hover {
-        color: var(--colAkcent);
+        color: var(--primary-blue);
+      }
+    }
+
+    &.error {
+      .item {
+        border-color: var(--danger-red);
+        background: rgba(239, 68, 68, 0.9);
+      }
+
+      .item .close {
+        &:hover {
+          color: white;
+        }
+      }
+    }
+
+    &.success {
+      .item {
+        border-color: var(--success-green);
+        background: rgba(16, 185, 129, 0.9);
+      }
+    }
+  }
+
+  @keyframes right {
+    0% {
+      right: -300px;
+    }
+    100% {
+      right: 15px;
+    }
+  }
+}
+
+// Responsive Design
+@media (max-width: 1024px) {
+  .modern-train-page {
+    .train-content {
+      padding: 0 1rem;
+    }
+
+    .train-grid {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .train-header .header-content {
+      padding: 0 1rem;
+
+      h1 {
+        font-size: 2rem;
       }
     }
   }
 }
 
-@keyframes right {
-  0% {
-    right: -300px;
-  }
+@media (max-width: 640px) {
+  .modern-train-page {
+    .train-header .header-content h1 {
+      font-size: 1.75rem;
+    }
 
-  100% {
-    right: 15px;
+    .modern-table {
+      font-size: 0.75rem;
+
+      thead th,
+      tbody td {
+        padding: 0.75rem 0.5rem;
+      }
+    }
+
+    .project-url-section .url-display {
+      flex-direction: column;
+      gap: 0.75rem;
+    }
   }
 }
 
-.page-train {
-  // background: url(../assets/img/bg-train.jpeg) no-repeat center top;
-  background-size: cover;
-  min-height: 100%;
+// Loading state for buttons
+.btn-modern {
+  &.preloader {
+    pointer-events: none;
+    position: relative;
+    color: transparent !important;
 
-  padding: 100px 0 75px 0;
-
-  .center {
-    max-width: 600px;
-  }
-
-  .btn {
-    &.preloader {
-      pointer-events: none;
-      background: #fff url(../assets/img/preloader.svg) no-repeat center;
-      color: transparent;
+    &::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid transparent;
+      border-top: 2px solid currentColor;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
     }
   }
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
 </style>

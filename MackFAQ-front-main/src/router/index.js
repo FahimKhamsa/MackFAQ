@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Train from '../views/Train.vue'
 import Chat from '../views/Chat.vue'
 import Projects from '../views/Projects.vue'
+import ProjectDetails from '../views/ProjectDetails.vue'
 import ChatsHistory from '../views/ChatsHistory.vue'
 import MainLayout from '../views/MainLayout.vue'
 import Auth from '@/views/Auth.vue'
@@ -55,6 +56,12 @@ const routes = [
                         path: '/projects',
                         name: 'projects',
                         component: Projects
+                    },
+                    {
+                        path: '/projects/:id',
+                        name: 'project-details',
+                        component: ProjectDetails,
+                        props: true
                     },
                     {
                         path: '/chats-history',

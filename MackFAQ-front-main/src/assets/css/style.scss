@@ -525,12 +525,12 @@ form {
 /* Project Workspace Layout */
 .projects-workspace {
 	min-height: 100vh;
-	background-color: var(--gray-50);
+	background-color: transparent;
 	
 	.workspace-header {
-		background-color: white;
+		background-color: transparent;
 		border-bottom: 1px solid var(--gray-200);
-		padding: 1.5rem 2rem;
+		padding: 1.5rem 0.5rem;
 		
 		.header-content {
 			display: flex;

@@ -8,6 +8,9 @@ export class ICreateLocalStorageDTO {
 
   @IsNumber()
   bot_id: number;
+
+  @IsNumber()
+  creator_id: number;
 }
 
 export class IUpdateLocalStorageDTO extends ICreateLocalStorageDTO {
