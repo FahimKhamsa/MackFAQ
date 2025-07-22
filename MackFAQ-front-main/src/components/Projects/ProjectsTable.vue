@@ -24,7 +24,19 @@
 								<div class="project-icon">
 									<i class="fas fa-folder"></i>
 								</div>
-								<span class="project-name">{{ project.name }}</span>
+								<div v-if="editingProject === project.id" class="project-name-edit">
+									<input 
+										v-model="editingName"
+										@keydown.enter="saveRename(project)"
+										@keydown.escape="cancelRename"
+										@blur="saveRename(project)"
+										ref="editInput"
+										class="project-name-input"
+									>
+								</div>
+								<span v-else class="project-name" @dblclick="startRename(project)">
+									{{ project.name }}
+								</span>
 							</div>
 						</td>
 						<td class="col-updated">
@@ -104,7 +116,10 @@ export default {
 	emits: ['project-selected', 'action-triggered'],
 	data() {
 		return {
-			openDropdown: null
+			openDropdown: null,
+			editingProject: null,
+			editingName: '',
+			originalName: ''
 		};
 	},
 	mounted() {
@@ -151,6 +166,35 @@ export default {
 				minute: '2-digit',
 				hour12: true
 			});
+		},
+
+		startRename(project) {
+			this.editingProject = project.id;
+			this.editingName = project.name;
+			this.originalName = project.name;
+			this.$nextTick(() => {
+				if (this.$refs.editInput && this.$refs.editInput[0]) {
+					this.$refs.editInput[0].focus();
+					this.$refs.editInput[0].select();
+				}
+			});
+		},
+
+		saveRename(project) {
+			if (this.editingName.trim() && this.editingName.trim() !== this.originalName) {
+				this.$emit('action-triggered', { 
+					action: 'rename', 
+					project: project,
+					newName: this.editingName.trim()
+				});
+			}
+			this.cancelRename();
+		},
+
+		cancelRename() {
+			this.editingProject = null;
+			this.editingName = '';
+			this.originalName = '';
 		}
 	}
 };
@@ -274,6 +318,33 @@ export default {
 	.project-name {
 		font-weight: 500;
 		color: var(--gray-900);
+		cursor: pointer;
+		
+		&:hover {
+			color: var(--primary-blue);
+		}
+	}
+
+	.project-name-edit {
+		flex: 1;
+	}
+
+	.project-name-input {
+		width: 100%;
+		padding: 0.25rem 0.5rem;
+		border: 1px solid var(--primary-blue);
+		border-radius: 0.25rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--gray-900);
+		background: white;
+		outline: none;
+		box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+
+		&:focus {
+			border-color: var(--primary-blue);
+			box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+		}
 	}
 }
 

@@ -270,6 +270,52 @@ export default createStore({
         await context.dispatch('loadMe');
       }
       return axiosConfigured.post(API_URL + '/api/default-project?bot_id=' + API_BOT_ID).then(r => r.data.id);
+    },
+
+    async renameProject(context, { projectId, newName }) {
+      try {
+        // Get the current user profile to get creator_id
+        const profile = context.getters.getProfile;
+        let creatorId = profile?.id;
+
+        // If profile is not loaded, try to load it first
+        if (!creatorId) {
+          await context.dispatch('loadMe');
+          creatorId = context.getters.getProfile?.id;
+        }
+
+        const response = await axiosConfigured.post(API_URL + '/local-intents-responses-storage/projects/update', {
+          id: projectId,
+          name: newName,
+          bot_id: API_BOT_ID,
+          creator_id: creatorId || 1 // Fallback to 1 if no user ID available
+        });
+
+        // Refresh the projects list after successful rename
+        await context.dispatch('updateAvailableProjects');
+
+        return response.data;
+      } catch (error) {
+        console.error('Failed to rename project:', error);
+        throw error;
+      }
+    },
+
+    async deleteProject(context, { projectId }) {
+      try {
+        const response = await axiosConfigured.post(API_URL + '/local-intents-responses-storage/projects/delete', {
+          id: projectId,
+          bot_id: API_BOT_ID
+        });
+
+        // Refresh the projects list after successful deletion
+        await context.dispatch('updateAvailableProjects');
+
+        return response.data;
+      } catch (error) {
+        console.error('Failed to delete project:', error);
+        throw error;
+      }
     }
   },
   modules: {

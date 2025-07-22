@@ -23,6 +23,7 @@
 			<!-- Projects Table -->
 			<div class="projects-section">
 				<ProjectsTable 
+					ref="projectsTable"
 					:projects="projects"
 					:project-file-counts="projectFileCounts"
 					@action-triggered="handleTableAction"
@@ -36,6 +37,45 @@
 			@close="showCreateModal = false"
 			@project-created="onProjectCreated"
 		/>
+
+		<!-- Delete Confirmation Modal -->
+		<div v-if="showDeleteModal" class="modal-overlay" @click="cancelDelete">
+			<div class="modal-content delete-modal" @click.stop>
+				<div class="modal-header">
+					<h3>Delete Project</h3>
+					<button @click="cancelDelete" class="modal-close">
+						<i class="fas fa-times"></i>
+					</button>
+				</div>
+				
+				<div class="modal-body">
+					<div class="delete-warning">
+						<div class="warning-icon">
+							<i class="fas fa-exclamation-triangle"></i>
+						</div>
+						<div class="warning-content">
+							<p>Are you sure you want to delete <strong>"{{ projectToDelete?.name }}"</strong>?</p>
+							<p class="warning-text">This action cannot be undone. All files and data associated with this project will be permanently deleted.</p>
+						</div>
+					</div>
+				</div>
+				
+				<div class="modal-footer">
+					<button @click="cancelDelete" class="btn-modern btn-secondary">
+						Cancel
+					</button>
+					<button 
+						@click="confirmDelete" 
+						:disabled="isDeleting"
+						:class="['btn-modern', 'btn-danger', { 'loading': isDeleting }]"
+					>
+						<i v-if="!isDeleting" class="fas fa-trash"></i>
+						<i v-else class="fas fa-spinner fa-spin"></i>
+						{{ isDeleting ? 'Deleting...' : 'Delete Project' }}
+					</button>
+				</div>
+			</div>
+		</div>
 	</div>
 </template>
 
@@ -51,7 +91,6 @@ export default {
 	},
 	data() {
 		return {
-			projects: [],
 			selectedProject: null,
 			projectFiles: [],
 			isDragOver: false,
@@ -66,9 +105,17 @@ export default {
 			fileUploadProgress: {},
 			isLoading: false,
 			showCreateModal: false,
+			showDeleteModal: false,
+			projectToDelete: null,
+			isDeleting: false,
 		};
 	},
 	computed: {
+		projects() {
+			// Get projects directly from store to ensure reactivity
+			return this.$store.getters.getAvailableProjects;
+		},
+		
 		projectFileCounts() {
 			// Calculate file counts for each project
 			const counts = {};
@@ -88,7 +135,6 @@ export default {
 				this.isLoading = true;
 				// Use the existing backend endpoint for projects
 				await this.$store.dispatch("updateAvailableProjects");
-				this.projects = this.$store.getters.getAvailableProjects;
 			} catch (error) {
 				console.error("Failed to load projects:", error);
 				this.$toast.error("Failed to load projects");
@@ -281,40 +327,48 @@ export default {
 			await this.loadProjects();
 		},
 
-		async renameProject(project) {
-			const newName = prompt("Enter new project name:", project.name);
-			if (newName && newName !== project.name) {
-				try {
-					await axios.put(`/api/projects/${project.id}`, {
-						name: newName,
-					});
-					this.$toast.success("Project renamed successfully");
-					await this.loadProjects();
-				} catch (error) {
-					console.error("Failed to rename project:", error);
-					this.$toast.error("Failed to rename project");
-				}
+		async renameProject(project, newName) {
+			try {
+				await this.$store.dispatch('renameProject', {
+					projectId: project.id,
+					newName: newName
+				});
+				this.$toast.success("Project renamed successfully");
+			} catch (error) {
+				console.error("Failed to rename project:", error);
+				this.$toast.error("Failed to rename project");
 			}
 		},
 
-		async deleteProject(project) {
-			if (
-				confirm(
-					`Are you sure you want to delete "${project.name}"? This action cannot be undone.`
-				)
-			) {
-				try {
-					await axios.delete(`/api/projects/${project.id}`);
-					this.$toast.success("Project deleted successfully");
-					if (this.selectedProject?.id === project.id) {
-						this.selectedProject = null;
-						this.projectFiles = [];
-					}
-					await this.loadProjects();
-				} catch (error) {
-					console.error("Failed to delete project:", error);
-					this.$toast.error("Failed to delete project");
+		showDeleteConfirmation(project) {
+			this.projectToDelete = project;
+			this.showDeleteModal = true;
+		},
+
+		cancelDelete() {
+			this.showDeleteModal = false;
+			this.projectToDelete = null;
+			this.isDeleting = false;
+		},
+
+		async confirmDelete() {
+			if (!this.projectToDelete) return;
+
+			try {
+				this.isDeleting = true;
+				await this.$store.dispatch('deleteProject', {
+					projectId: this.projectToDelete.id
+				});
+				this.$toast.success("Project deleted successfully");
+				if (this.selectedProject?.id === this.projectToDelete.id) {
+					this.selectedProject = null;
+					this.projectFiles = [];
 				}
+				this.cancelDelete();
+			} catch (error) {
+				console.error("Failed to delete project:", error);
+				this.$toast.error("Failed to delete project");
+				this.isDeleting = false;
 			}
 		},
 
@@ -369,10 +423,16 @@ export default {
 		},
 
 		// Table action handler
-		handleTableAction({ action, project }) {
+		handleTableAction({ action, project, newName }) {
 			switch (action) {
 				case 'rename':
-					this.renameProject(project);
+					if (newName) {
+						// Inline rename from table
+						this.renameProject(project, newName);
+					} else {
+						// Rename from dropdown - trigger inline editing
+						this.$refs.projectsTable?.startRename(project);
+					}
 					break;
 				case 'upload':
 					// Select the project and trigger file upload
@@ -382,7 +442,7 @@ export default {
 					});
 					break;
 				case 'delete':
-					this.deleteProject(project);
+					this.showDeleteConfirmation(project);
 					break;
 				default:
 					console.log(`Action ${action} not implemented yet`);
@@ -570,6 +630,163 @@ export default {
 }
 
 
+/* Delete Modal Styling */
+.modal-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+	backdrop-filter: blur(4px);
+}
+
+.modal-content {
+	background: white;
+	border-radius: 0.5rem;
+	box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+	max-width: 500px;
+	width: 90%;
+	max-height: 90vh;
+	overflow: hidden;
+	animation: modalSlideIn 0.2s ease-out;
+
+	&.delete-modal {
+		max-width: 450px;
+	}
+}
+
+@keyframes modalSlideIn {
+	from {
+		opacity: 0;
+		transform: translateY(-20px) scale(0.95);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+.modal-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 1.5rem;
+	border-bottom: 1px solid var(--gray-200);
+
+	h3 {
+		margin: 0;
+		font-size: 1.125rem;
+		font-weight: 600;
+		color: var(--gray-900);
+	}
+
+	.modal-close {
+		background: none;
+		border: none;
+		color: var(--gray-400);
+		cursor: pointer;
+		padding: 0.5rem;
+		border-radius: 0.25rem;
+		transition: all 0.15s ease-in-out;
+
+		&:hover {
+			color: var(--gray-600);
+			background: var(--gray-100);
+		}
+
+		i {
+			font-size: 1rem;
+		}
+	}
+}
+
+.modal-body {
+	padding: 1.5rem;
+}
+
+.modal-footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.75rem;
+	padding: 1.5rem;
+	border-top: 1px solid var(--gray-200);
+	background: var(--gray-50);
+}
+
+.delete-warning {
+	display: flex;
+	gap: 1rem;
+	align-items: flex-start;
+
+	.warning-icon {
+		width: 3rem;
+		height: 3rem;
+		background-color: rgba(239, 68, 68, 0.1);
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: #ef4444;
+		font-size: 1.25rem;
+		flex-shrink: 0;
+	}
+
+	.warning-content {
+		flex: 1;
+
+		p {
+			margin: 0 0 0.75rem 0;
+			color: var(--gray-900);
+			font-size: 0.875rem;
+			line-height: 1.5;
+
+			&:last-child {
+				margin-bottom: 0;
+			}
+
+			&.warning-text {
+				color: var(--gray-600);
+				font-size: 0.8125rem;
+			}
+		}
+
+		strong {
+			font-weight: 600;
+		}
+	}
+}
+
+.btn-danger {
+	background-color: #ef4444;
+	color: white;
+	border: 1px solid #ef4444;
+
+	&:hover:not(:disabled) {
+		background-color: #dc2626;
+		border-color: #dc2626;
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+	}
+
+	&:disabled {
+		background-color: #fca5a5;
+		border-color: #fca5a5;
+		cursor: not-allowed;
+		transform: none;
+		box-shadow: none;
+	}
+
+	&.loading {
+		pointer-events: none;
+		opacity: 0.7;
+	}
+}
+
 /* Responsive Design */
 @media (max-width: 640px) {
 	.files-grid {
@@ -607,6 +824,15 @@ export default {
 
 		.btn-modern {
 			width: 100%;
+		}
+	}
+
+	.delete-warning {
+		flex-direction: column;
+		text-align: center;
+
+		.warning-icon {
+			align-self: center;
 		}
 	}
 }
