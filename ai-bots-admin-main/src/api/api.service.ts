@@ -7,20 +7,11 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  copyFile,
-  existsSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  unlinkSync,
-  writeFileSync,
-} from 'fs';
-import { dirname } from 'path';
 import { GptapiService } from 'src/gptapi/gptapi.service';
 import * as crypto from 'crypto';
 import { BotsService } from 'src/bots/bots.service';
 import { MessagesService } from 'src/messages/messages.service';
+import { ConversationsService } from 'src/conversations/conversations.service';
 import { parse } from 'csv-parse';
 import {
   IConfig,
@@ -33,15 +24,8 @@ import {
   ICreateConversationDTO,
   IMessage,
   IProjectIdentification,
+  IChat,
 } from './dto/get-complete.dto';
-
-export interface IChat {
-  project_id: any;
-  bot_id: any;
-  name: string;
-  id: string;
-  messages: IMessage[];
-}
 
 class Chat {
   public readonly project_id: any;
@@ -91,6 +75,7 @@ export class ApiService {
     private configService: ConfigService,
     private botsService: BotsService,
     private messagesService: MessagesService,
+    private conversationsService: ConversationsService,
     private localIntentsResponsesStorageService: LocalIntentsResponsesStorageService,
     private largeFilesProcessingService: LargeFilesProcessingService,
   ) {
@@ -366,7 +351,7 @@ export class ApiService {
 
     if (chatData) {
       if (!config.bot_id) {
-        config.bot_id = chatData.bot_id;
+        config.bot_id = chatData.assistant_id;
       }
       if (!config.project_id) {
         config.project_id = chatData.project_id;
@@ -702,41 +687,14 @@ export class ApiService {
         messageId: this.newMessageId(),
       });
 
-      this.savePrompt(
+      await this.savePrompt(
         processPromptData.promptBody,
         processPromptData.conversationId,
         config,
       );
 
-      const userMessage = await this.messagesService.createNewMessage({
-        unique_id:
-          processPromptData.promptBody[processPromptData.promptBody.length - 2]
-            .messageId,
-        type: processPromptData.promptBody[
-          processPromptData.promptBody.length - 2
-        ].type,
-        text: processPromptData.promptBody[
-          processPromptData.promptBody.length - 2
-        ].message,
-        previous_message_id: null,
-        ...(params && params.bot_id ? { bot_id: params.bot_id } : null),
-        conversation_unique_id: processPromptData.conversationId,
-      });
-
-      await this.messagesService.createNewMessage({
-        unique_id:
-          processPromptData.promptBody[processPromptData.promptBody.length - 1]
-            .messageId,
-        type: processPromptData.promptBody[
-          processPromptData.promptBody.length - 1
-        ].type,
-        text: processPromptData.promptBody[
-          processPromptData.promptBody.length - 1
-        ].message,
-        previous_message_id: userMessage.id,
-        ...(params && params.bot_id ? { bot_id: params.bot_id } : null),
-        conversation_unique_id: processPromptData.conversationId,
-      });
+      // Note: Individual message records are now handled by the ConversationsService
+      // The savePrompt method creates both the conversation and individual message records
     }
 
     if (
@@ -1385,37 +1343,25 @@ export class ApiService {
   }
 
   public async getConversationHistory(conversationId: string): Promise<IChat> {
-    const conversationsFolder = this.configService.getOrThrow<string>(
-      'CONVERSATIONS_FOLDER_PATH',
+    const conversation = await this.conversationsService.getConversation(
+      conversationId,
     );
-    const conversationFile = conversationsFolder + conversationId + '.json';
 
-    let fileData: any = [];
-
-    if (existsSync(conversationFile)) {
-      fileData = JSON.parse(readFileSync(conversationFile).toString('utf-8'));
-    }
-
-    if (Array.isArray(fileData)) {
-      const fixedChatHistory = {
-        project_id: null,
-        bot_id: null,
-        name: conversationId,
-        id: conversationId,
-        messages: (fileData as IMessage[]).map((m) => this.formatMessage(m)),
-      };
-
-      return fixedChatHistory;
-    }
-
-    if (typeof fileData === 'object') {
-      fileData.messages = (fileData.messages || []).map((m) =>
-        this.formatMessage(m),
-      );
-      return fileData;
-    }
-
-    return null;
+    return {
+      project_id: conversation.project_id,
+      assistant_id: conversation.assistant_id,
+      name: conversation.name,
+      id: conversation.id,
+      messages: conversation.messages.map((m) =>
+        this.formatMessage({
+          ...m,
+          type: m.type as MessageTypes,
+        }),
+      ),
+      messages_slug: conversation.messages_slug,
+      created_at: conversation.created_at,
+      updated_at: conversation.updated_at,
+    };
   }
 
   private async formatPrompt(
@@ -1520,9 +1466,7 @@ export class ApiService {
       }
     }
 
-    if (isUpdated) {
-      this.saveConversationMetadata(conversation.id, conversation);
-    }
+    // Note: saveConversationMetadata is no longer needed with database storage
 
     return conversation;
   }
@@ -1531,116 +1475,9 @@ export class ApiService {
     project_id?: number;
     bot_id?: number;
   }) {
-    const id = `${config.bot_id ?? ''}_${config.project_id ?? ''}`;
-
-    const conversationsMetadataFolder = this.configService.getOrThrow<string>(
-      'CONVERSATIONS_METADATA_FOLDER_PATH',
+    return await this.conversationsService.getConversationsList(
+      config.project_id,
     );
-    const conversationMetadataFile = conversationsMetadataFolder + id + '.json';
-
-    let metadataContent: {
-      bot_id: number;
-      project_id: number;
-      conversations: {
-        [conversationId: string]: {
-          createdAt: string;
-          name: string;
-          id: string;
-          messages_slug?: string;
-        };
-      };
-    } = existsSync(conversationMetadataFile)
-      ? JSON.parse(readFileSync(conversationMetadataFile).toString('utf-8'))
-      : null;
-
-    if (!metadataContent) {
-      metadataContent = {
-        bot_id: config.bot_id ?? null,
-        project_id: config.project_id ?? null,
-        conversations: {},
-      };
-    }
-
-    for (const conversationId in metadataContent.conversations) {
-      await this.fixLegacyConversationsMeta(
-        metadataContent.conversations[conversationId],
-      );
-    }
-
-    return metadataContent.conversations;
-  }
-
-  private saveConversationMetadata(
-    conversationId: string,
-    config: {
-      project_id?: number;
-      bot_id?: number;
-      name?: string;
-      messages_slug?: string;
-    },
-  ) {
-    const id = `${config.bot_id ?? ''}_${config.project_id ?? ''}`;
-
-    const conversationsMetadataFolder = this.configService.getOrThrow<string>(
-      'CONVERSATIONS_METADATA_FOLDER_PATH',
-    );
-    const conversationMetadataFile = conversationsMetadataFolder + id + '.json';
-
-    // Ensure the conversations metadata directory exists before writing
-    const metadataDir = dirname(conversationMetadataFile);
-    if (!existsSync(metadataDir)) {
-      try {
-        mkdirSync(metadataDir, { recursive: true });
-        this.logger.log(
-          `Created conversations metadata directory: ${metadataDir}`,
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to create conversations metadata directory: ${error.message}`,
-        );
-        // Don't throw error here - metadata is less critical than conversation data
-      }
-    }
-
-    let metadataContent: {
-      bot_id: number;
-      project_id: number;
-      conversations: {
-        [conversationId: string]: {
-          createdAt: string;
-          name: string;
-          id: string;
-          messages_slug?: string;
-        };
-      };
-    } = existsSync(conversationMetadataFile)
-      ? JSON.parse(readFileSync(conversationMetadataFile).toString('utf-8'))
-      : null;
-
-    if (!metadataContent) {
-      metadataContent = {
-        bot_id: config.bot_id ?? null,
-        project_id: config.project_id ?? null,
-        conversations: {},
-      };
-    }
-
-    const name =
-      config.name ??
-      metadataContent.conversations[conversationId]?.name ??
-      conversationId;
-    const messages_slug =
-      config.messages_slug ??
-      metadataContent.conversations[conversationId]?.messages_slug ??
-      null;
-
-    metadataContent.conversations[conversationId] = {
-      id: conversationId,
-      name: name,
-      createdAt: (+new Date()).toString(),
-      messages_slug: messages_slug,
-    };
-    writeFileSync(conversationMetadataFile, JSON.stringify(metadataContent));
   }
 
   private async savePrompt(
@@ -1648,49 +1485,41 @@ export class ApiService {
     conversationId: string,
     config: { project_id?: number; bot_id?: number; name?: string },
   ) {
-    const conversationsFolder = this.configService.getOrThrow<string>(
-      'CONVERSATIONS_FOLDER_PATH',
-    );
-    const conversationFile = conversationsFolder + conversationId + '.json';
-
-    // Ensure the conversations directory exists before writing
-    const conversationDir = dirname(conversationFile);
-    if (!existsSync(conversationDir)) {
-      try {
-        mkdirSync(conversationDir, { recursive: true });
-        this.logger.log(`Created conversations directory: ${conversationDir}`);
-      } catch (error) {
-        this.logger.error(
-          `Failed to create conversations directory: ${error.message}`,
-        );
-        throw new HttpException(
-          'Failed to create conversation storage directory',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-    }
-
     const messagesList = promptBody.map((m) => this.formatMessage(m));
-    const fileToSave = {
-      project_id: config.project_id ?? null,
-      bot_id: config.bot_id ?? null,
-      name: config.name ?? conversationId,
-      id: conversationId,
-      messages: messagesList,
-      messages_slug: await this.generateConversationMessagesSlug(messagesList),
-    };
-    writeFileSync(openSync(conversationFile, 'w'), JSON.stringify(fileToSave));
-    this.saveConversationMetadata(conversationId, {
-      ...config,
-      messages_slug: fileToSave.messages_slug,
-    });
+    const messages_slug = await this.generateConversationMessagesSlug(
+      messagesList,
+    );
+
+    // Check if conversation exists
+    try {
+      await this.conversationsService.getConversation(conversationId);
+      // If exists, append messages
+      await this.conversationsService.appendToConversation(
+        conversationId,
+        messagesList,
+        {
+          project_id: config.project_id,
+          assistant_id: config.bot_id,
+          name: config.name,
+          messages_slug,
+        },
+      );
+    } catch (error) {
+      // If doesn't exist, create new conversation
+      await this.conversationsService.createConversation(
+        conversationId,
+        messagesList,
+        {
+          project_id: config.project_id,
+          assistant_id: config.bot_id,
+          name: config.name || conversationId,
+          messages_slug,
+        },
+      );
+    }
   }
 
   private async deleteHistory(conversationId: string) {
-    const conversationsFolder = this.configService.getOrThrow<string>(
-      'CONVERSATIONS_FOLDER_PATH',
-    );
-    const conversationFile = conversationsFolder + conversationId + '.json';
-    unlinkSync(conversationFile);
+    await this.conversationsService.clearConversation(conversationId);
   }
 }

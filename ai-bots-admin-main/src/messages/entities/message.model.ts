@@ -10,6 +10,7 @@ import {
   HasOne,
 } from 'sequelize-typescript';
 import type { MessageTypes } from 'src/api/api.service';
+import { ConversationModel } from 'src/conversations/entities/conversation.model';
 
 @Table({
   tableName: 'messages',
@@ -19,35 +20,35 @@ import type { MessageTypes } from 'src/api/api.service';
 export class MessageModel extends Model<MessageModel> {
   @PrimaryKey
   @Column({
-    type: DataType.INTEGER,
-    autoIncrement: true,
+    type: DataType.UUID,
+    defaultValue: DataType.UUIDV4,
   })
-  id: number;
+  id: string;
 
   @Column({
     type: DataType.INTEGER,
     defaultValue: null,
   })
-  bot_id: number;
+  assistant_id: number;
 
+  @ForeignKey(() => ConversationModel)
   @Column({
-    type: DataType.STRING(100),
-    // unique: true, // Temporarily commented out due to MySQL 64 index limit
+    type: DataType.UUID,
     defaultValue: null,
   })
-  unique_id: string;
+  conversation_id: string;
 
   @Column({
-    type: DataType.STRING(200),
+    type: DataType.UUID,
     defaultValue: null,
   })
-  conversation_unique_id: string;
+  previous_message_id: string;
 
   @Column({
-    type: DataType.INTEGER,
+    type: DataType.UUID,
     defaultValue: null,
   })
-  previous_message_id: number;
+  next_message_id: string;
 
   @Column({
     type: DataType.STRING(50),
@@ -60,4 +61,19 @@ export class MessageModel extends Model<MessageModel> {
     defaultValue: null,
   })
   text: string;
+
+  @Column({
+    type: DataType.DATE,
+    defaultValue: DataType.NOW,
+  })
+  created_at: Date;
+
+  @Column({
+    type: DataType.DATE,
+    defaultValue: DataType.NOW,
+  })
+  updated_at: Date;
+
+  @BelongsTo(() => ConversationModel, 'conversation_id')
+  conversation: ConversationModel;
 }

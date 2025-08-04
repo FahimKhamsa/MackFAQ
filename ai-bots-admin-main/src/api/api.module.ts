@@ -10,6 +10,7 @@ import { LocalIntentsResponsesStorageModule } from 'src/local-intents-responses-
 import { LargeFilesProcessingModule } from 'src/large-files-processing/large-files-processing.module';
 import { HttpModule } from '@nestjs/axios';
 import { OpenaiKnowledgeModule } from 'src/openai-knowledge/openai-knowledge.module';
+import { ConversationsModule } from 'src/conversations/conversations.module';
 
 @Module({
   providers: [ApiService],
@@ -47,6 +48,7 @@ import { OpenaiKnowledgeModule } from 'src/openai-knowledge/openai-knowledge.mod
     RasaapiModule,
     LocalIntentsResponsesStorageModule,
     OpenaiKnowledgeModule,
+    ConversationsModule,
   ],
 })
 export class ApiModule {}

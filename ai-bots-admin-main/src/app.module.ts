@@ -12,6 +12,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { SOPModule } from './sop/sop.module';
 import { AIConfigModule } from './ai-config/ai-config.module';
 import { OpenaiKnowledgeModule } from './openai-knowledge/openai-knowledge.module';
+import { ConversationsModule } from './conversations/conversations.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { OpenaiKnowledgeModule } from './openai-knowledge/openai-knowledge.modul
     SOPModule,
     AIConfigModule,
     OpenaiKnowledgeModule,
+    ConversationsModule,
   ],
 })
 export class AppModule {}

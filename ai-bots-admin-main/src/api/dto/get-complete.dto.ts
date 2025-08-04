@@ -138,3 +138,14 @@ export class IMessage {
   @IsOptional()
   createdAt?: string;
 }
+
+export interface IChat {
+  project_id: number;
+  assistant_id: number;
+  name: string;
+  id: string;
+  messages: IMessage[];
+  messages_slug: string;
+  created_at?: Date;
+  updated_at?: Date;
+}

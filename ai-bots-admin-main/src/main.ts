@@ -2,7 +2,6 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 import { NestFactory } from '@nestjs/core';
-import { existsSync, mkdirSync } from 'fs';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join, extname, basename } from 'path';
 import { AppModule } from './app.module';
@@ -11,37 +10,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { readdirSync, readFileSync } from 'fs';
 import { OnUnauthorizedExceptionFilter } from './on-unauthorized-exception/on-unauthorized-exception.filter';
 
-/**
- * Ensures required directories exist for the application
- * Creates them if they don't exist to prevent runtime errors
- */
-function ensureRequiredDirectories() {
-  const requiredDirectories = [
-    process.env.CONVERSATIONS_FOLDER_PATH || 'conversations/',
-    process.env.CONVERSATIONS_METADATA_FOLDER_PATH || 'conversations-metadata/',
-    process.env.PUBLIC_FILES_STORAGE || 'storage/',
-    (process.env.PUBLIC_FILES_STORAGE || 'storage/') + 'uploads/',
-  ];
-
-  requiredDirectories.forEach((dir) => {
-    if (!existsSync(dir)) {
-      try {
-        mkdirSync(dir, { recursive: true });
-        console.log(`✅ Created directory: ${dir}`);
-      } catch (error) {
-        console.error(`❌ Failed to create directory ${dir}:`, error.message);
-        // Don't throw error - let the app continue and fail gracefully later if needed
-      }
-    } else {
-      console.log(`✅ Directory already exists: ${dir}`);
-    }
-  });
-}
-
 async function bootstrap() {
-  // Initialize required directories before starting the application
-  console.log('🔧 Initializing required directories...');
-  ensureRequiredDirectories();
   console.log('🚀 Starting NestJS application...');
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     cors: true,

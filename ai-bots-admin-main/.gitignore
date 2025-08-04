@@ -36,10 +36,10 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# User Folders
-conversations/
-conversations-metadata/
-storage/
-storage/uploads/
+# # User Folders
+# conversations/
+# conversations-metadata/
+# storage/
+# storage/uploads/
 
 /scripts

@@ -6,6 +6,7 @@ import { IntentModel } from 'src/local-intents-responses-storage/entities/intent
 import { LocalStorageModel } from 'src/local-intents-responses-storage/entities/local-storage-project.model';
 import { ResponseModel } from 'src/local-intents-responses-storage/entities/response.model';
 import { MessageModel } from 'src/messages/entities/message.model';
+import { ConversationModel } from 'src/conversations/entities/conversation.model';
 import { UserModel } from 'src/users/entities/user.model';
 import { SOPDocument } from 'src/sop/entities/sop-document.model';
 import { AIConfiguration } from 'src/ai-config/entities/ai-configuration.model';
@@ -17,6 +18,7 @@ export const DatabaseModels = [
   UserModel,
   BotModel,
   MessageModel,
+  ConversationModel,
 
   IntentExampleModel,
   IntentModel,
