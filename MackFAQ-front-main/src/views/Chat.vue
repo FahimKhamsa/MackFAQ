@@ -1,6 +1,5 @@
 <template>
 	<div class="chat-workspace">
-		<!-- Header Section -->
 		<div class="chat-header">
 			<div class="header-content">
 				<div class="chat-title">
@@ -11,7 +10,6 @@
 				</div>
 
 				<div class="context-controls">
-					<!-- Project Selector -->
 					<div class="control-group">
 						<label class="control-label">Project Context</label>
 						<select v-model="selectedProject" @change="updateChatContext" class="context-select">
@@ -22,7 +20,6 @@
 						</select>
 					</div>
 
-					<!-- SOP Toggle -->
 					<div class="control-group">
 						<label class="toggle-label">
 							<input type="checkbox" v-model="includeSOP" @change="updateSOPSetting" />
@@ -30,7 +27,6 @@
 						</label>
 					</div>
 
-					<!-- AI Model Selector -->
 					<div class="control-group">
 						<label class="control-label">AI Model</label>
 						<select v-model="selectedModel" @change="updateModelSetting" class="context-select">
@@ -43,7 +39,6 @@
 			</div>
 		</div>
 
-		<!-- Chat Messages Area -->
 		<div class="chat-messages" ref="messagesContainer">
 			<div v-if="!questions.length" class="empty-chat">
 				<div class="empty-content">
@@ -66,8 +61,8 @@
 			]">
 				<div class="message-avatar">
 					<i :class="question.type === 'question'
-							? 'fas fa-user'
-							: 'fas fa-robot'
+						? 'fas fa-user'
+						: 'fas fa-robot'
 						"></i>
 				</div>
 				<div class="message-content">
@@ -102,13 +97,12 @@
 			</div>
 		</div>
 
-		<!-- Chat Input -->
 		<div class="chat-input">
 			<div class="input-container">
 				<div class="input-wrapper">
 					<textarea v-model="form.text" @keydown.enter.prevent="handleEnterKey" :placeholder="getInputPlaceholder()"
 						class="input-field" rows="1" ref="messageInput">
-					</textarea>
+          </textarea>
 					<button @click="sendMessage" :disabled="!form.text.trim() || isLoading"
 						:class="['send-button', { loading: isLoading }]">
 						<i v-if="!isLoading" class="fas fa-paper-plane"></i>
@@ -116,7 +110,6 @@
 					</button>
 				</div>
 
-				<!-- Context Status -->
 				<div class="context-status" v-if="selectedProject || includeSOP">
 					<div class="status-items">
 						<span v-if="selectedProject" class="status-item project-context">
@@ -132,7 +125,6 @@
 			</div>
 		</div>
 
-		<!-- File Selection Modal -->
 		<div v-if="showFileModal" class="modal-overlay" @click="closeFileModal">
 			<div class="modal-content" @click.stop>
 				<div class="modal-header">
@@ -400,15 +392,18 @@ export default {
 <style lang="scss" scoped>
 /* Chat Workspace Layout */
 .chat-workspace {
-	min-height: 100vh;
+	// MODIFICATION: Changed min-height to height and added overflow to fix layout bugs.
+	height: 100vh;
 	background-color: var(--gray-50);
 	display: flex;
 	flex-direction: column;
+	overflow: hidden;
 
 	.chat-header {
 		background-color: white;
 		border-bottom: 1px solid var(--gray-200);
 		padding: 1rem 2rem;
+		z-index: 10; // Ensure header is above chat messages if any overlap occurs
 
 		.header-content {
 			display: flex;
@@ -482,6 +477,8 @@ export default {
 	}
 
 	.chat-messages {
+		display: flex;
+		flex-direction: column;
 		flex: 1;
 		max-width: 1200px;
 		margin: 0 auto;
@@ -493,7 +490,7 @@ export default {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			min-height: 400px;
+			height: 100%;
 
 			.empty-content {
 				text-align: center;
@@ -525,9 +522,11 @@ export default {
 			margin-bottom: 1.5rem;
 			display: flex;
 			gap: 1rem;
+			position: relative;
 
 			&.user-message {
 				justify-content: flex-end;
+				inset: 0 0 0 80%;
 
 				.message-avatar {
 					order: 2;
@@ -574,6 +573,7 @@ export default {
 				padding: 1rem 1.5rem;
 				font-size: 0.875rem;
 				line-height: 1.5;
+				box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 
 				.message-text {
 					margin-bottom: 0.5rem;
@@ -614,19 +614,26 @@ export default {
 					}
 				}
 
+				.ai-message & .message-sources,
+				.ai-message & .sop-references {
+					border-top: 1px solid var(--gray-200);
+				}
+
 				.message-timestamp {
 					margin-top: 0.5rem;
 					font-size: 0.75rem;
 					opacity: 0.7;
+					text-align: right;
 				}
 			}
 		}
 	}
 
 	.chat-input {
-		background-color: white;
+		background-color: #ffffff;
 		border-top: 1px solid var(--gray-200);
 		padding: 1rem 2rem;
+		z-index: 10;
 
 		.input-container {
 			max-width: 1200px;
@@ -636,22 +643,23 @@ export default {
 				display: flex;
 				gap: 1rem;
 				align-items: flex-end;
+				background-color: #fff;
+				padding: 0.5rem;
+				border-radius: 0.75rem;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 
 				.input-field {
 					flex: 1;
 					min-height: 2.5rem;
 					max-height: 8rem;
 					padding: 0.75rem;
-					border: 1px solid var(--gray-300);
-					border-radius: 0.5rem;
+					border: none;
 					resize: none;
 					font-size: 0.875rem;
 					font-family: inherit;
 
 					&:focus {
 						outline: none;
-						border-color: var(--primary-blue);
-						box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 					}
 				}
 
@@ -682,17 +690,18 @@ export default {
 
 			.context-status {
 				margin-top: 0.5rem;
+				padding-left: 0.5rem;
 
 				.status-items {
 					display: flex;
 					gap: 0.5rem;
+					flex-wrap: wrap;
 
 					.status-item {
 						display: flex;
 						align-items: center;
 						gap: 0.25rem;
 						padding: 0.25rem 0.5rem;
-						background-color: var(--gray-100);
 						border-radius: 0.25rem;
 						font-size: 0.75rem;
 						color: var(--gray-700);
@@ -734,6 +743,8 @@ export default {
 	width: 90%;
 	max-height: 80vh;
 	overflow: hidden;
+	display: flex;
+	flex-direction: column;
 
 	.modal-header {
 		padding: 1.5rem;
@@ -752,7 +763,6 @@ export default {
 
 	.modal-body {
 		padding: 1.5rem;
-		max-height: 400px;
 		overflow-y: auto;
 
 		.file-selection {
@@ -792,6 +802,8 @@ export default {
 @media (max-width: 1024px) {
 	.chat-workspace {
 		.chat-header {
+			padding: 1rem;
+
 			.header-content {
 				flex-direction: column;
 				gap: 1rem;
@@ -802,6 +814,7 @@ export default {
 				flex-direction: column;
 				gap: 1rem;
 				width: 100%;
+				align-items: stretch;
 
 				.control-group {
 					width: 100%;
