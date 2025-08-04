@@ -4,6 +4,7 @@ import { OpenAI } from 'openai';
 import { ProjectAssistantModel } from './entities/project-assistant.model';
 import { ProjectFileModel } from './entities/project-file.model';
 import { ProjectThreadModel } from './entities/project-thread.model';
+import { LocalStorageModel } from '../local-intents-responses-storage/entities/local-storage-project.model';
 
 @Injectable()
 export class OpenaiKnowledgeService {
@@ -17,6 +18,8 @@ export class OpenaiKnowledgeService {
     private projectFileModel: typeof ProjectFileModel,
     @InjectModel(ProjectThreadModel)
     private projectThreadModel: typeof ProjectThreadModel,
+    @InjectModel(LocalStorageModel)
+    private localStorageModel: typeof LocalStorageModel,
   ) {
     this.openai = new OpenAI({
       apiKey: process.env.OPEN_AI_API_KEY,
@@ -322,6 +325,9 @@ export class OpenaiKnowledgeService {
       // Delete from database
       await dbFile.destroy();
 
+      // Update project files count after deletion
+      await this.updateProjectFilesCount(projectId);
+
       this.logger.log(`File ${dbFile.filename} deleted successfully`);
       return { success: true };
     } catch (error) {
@@ -478,6 +484,9 @@ export class OpenaiKnowledgeService {
         }
       }
 
+      // Update project files count after training
+      await this.updateProjectFilesCount(projectId);
+
       return {
         success: true,
         message: `Training completed: ${trainedCount} successful, ${failedCount} failed`,
@@ -590,6 +599,9 @@ export class OpenaiKnowledgeService {
           failedCount++;
         }
       }
+
+      // Update project files count after retry
+      await this.updateProjectFilesCount(projectId);
 
       return {
         success: true,
@@ -714,5 +726,45 @@ export class OpenaiKnowledgeService {
 
   private getFileExtension(filename: string): string {
     return filename.split('.').pop()?.toLowerCase() || 'unknown';
+  }
+
+  /**
+   * Update project files count when file status changes
+   */
+  private async updateProjectFilesCount(projectId: number) {
+    try {
+      // Get the assistant for this project
+      const assistant = await this.projectAssistantModel.findOne({
+        where: { project_id: projectId, is_active: true },
+      });
+
+      if (!assistant) {
+        this.logger.warn(`No assistant found for project ${projectId}`);
+        return;
+      }
+
+      // Count completed files
+      const completedFilesCount = await this.projectFileModel.count({
+        where: {
+          assistant_id: assistant.id,
+          status: 'completed',
+        },
+      });
+
+      // Update the project's files count
+      await this.localStorageModel.update(
+        { files: completedFilesCount },
+        { where: { id: projectId } },
+      );
+
+      this.logger.log(
+        `Updated project ${projectId} files count to ${completedFilesCount}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error updating project files count for project ${projectId}:`,
+        error,
+      );
+    }
   }
 }

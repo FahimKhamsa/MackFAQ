@@ -20,10 +20,6 @@
 						<i class="fas fa-upload"></i>
 						Upload Files
 					</button>
-					<button @click="trainAI" class="btn-modern btn-success" ref="trainButton">
-						<i class="fas fa-brain"></i>
-						Train AI
-					</button>
 				</div>
 			</div>
 		</div>
@@ -48,6 +44,10 @@
 						<div class="info-item">
 							<label>Last Updated</label>
 							<span>{{ formatDate(project.updatedAt) }}</span>
+						</div>
+						<div class="info-item">
+							<label>Trained Files</label>
+							<span>{{ currentFileCount }} files</span>
 						</div>
 						<div class="info-item">
 							<label>Total Files</label>
@@ -267,6 +267,9 @@ export default {
 		};
 	},
 	computed: {
+		currentFileCount() {
+			return this.projectFiles.filter(file => file.status === 'completed' && file.deleted_at == null).length;
+		},
 		uploadedFilesCount() {
 			return this.projectFiles.filter(file => file.status === 'uploaded').length;
 		},
@@ -278,7 +281,7 @@ export default {
 		},
 		completedFilesCount() {
 			return this.projectFiles.filter(file => file.status === 'completed').length;
-		}
+		},
 	},
 	beforeUnmount() {
 		if (this.pollingInterval) {
@@ -463,9 +466,19 @@ export default {
 		},
 
 		formatDate(dateString) {
-			if (!dateString) return "Never";
+			if (!dateString) return 'Never';
 			const date = new Date(dateString);
-			return date.toLocaleDateString();
+
+			// Format: "7/28/2025 11:55 PM"
+			return date.toLocaleDateString('en-US', {
+				year: 'numeric',
+				month: 'numeric',
+				day: 'numeric'
+			}) + ' ' + date.toLocaleTimeString('en-US', {
+				hour: 'numeric',
+				minute: '2-digit',
+				hour12: true
+			});
 		},
 
 		formatFileSize(bytes) {

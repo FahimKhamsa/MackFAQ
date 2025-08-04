@@ -22,21 +22,13 @@
 		<div class="workspace-content">
 			<!-- Projects Table -->
 			<div class="projects-section">
-				<ProjectsTable 
-					ref="projectsTable"
-					:projects="projects"
-					:project-file-counts="projectFileCounts"
-					@action-triggered="handleTableAction"
-				/>
+				<ProjectsTable ref="projectsTable" :projects="projects" :project-file-counts="projectFileCounts"
+					@action-triggered="handleTableAction" />
 			</div>
 		</div>
 
 		<!-- Create Project Modal -->
-		<CreateProjectModal 
-			:show="showCreateModal" 
-			@close="showCreateModal = false"
-			@project-created="onProjectCreated"
-		/>
+		<CreateProjectModal :show="showCreateModal" @close="showCreateModal = false" @project-created="onProjectCreated" />
 
 		<!-- Delete Confirmation Modal -->
 		<div v-if="showDeleteModal" class="modal-overlay" @click="cancelDelete">
@@ -47,7 +39,7 @@
 						<i class="fas fa-times"></i>
 					</button>
 				</div>
-				
+
 				<div class="modal-body">
 					<div class="delete-warning">
 						<div class="warning-icon">
@@ -55,20 +47,18 @@
 						</div>
 						<div class="warning-content">
 							<p>Are you sure you want to delete <strong>"{{ projectToDelete?.name }}"</strong>?</p>
-							<p class="warning-text">This action cannot be undone. All files and data associated with this project will be permanently deleted.</p>
+							<p class="warning-text">This action cannot be undone. All files and data associated with this project will
+								be permanently deleted.</p>
 						</div>
 					</div>
 				</div>
-				
+
 				<div class="modal-footer">
 					<button @click="cancelDelete" class="btn-modern btn-secondary">
 						Cancel
 					</button>
-					<button 
-						@click="confirmDelete" 
-						:disabled="isDeleting"
-						:class="['btn-modern', 'btn-danger', { 'loading': isDeleting }]"
-					>
+					<button @click="confirmDelete" :disabled="isDeleting"
+						:class="['btn-modern', 'btn-danger', { 'loading': isDeleting }]">
 						<i v-if="!isDeleting" class="fas fa-trash"></i>
 						<i v-else class="fas fa-spinner fa-spin"></i>
 						{{ isDeleting ? 'Deleting...' : 'Delete Project' }}
@@ -115,13 +105,12 @@ export default {
 			// Get projects directly from store to ensure reactivity
 			return this.$store.getters.getAvailableProjects;
 		},
-		
+
 		projectFileCounts() {
-			// Calculate file counts for each project
+			// Use files count from database
 			const counts = {};
 			this.projects.forEach(project => {
-				const docsConnected = this.$store.getters.getDocsConnectedToProject(project.id);
-				counts[project.id] = docsConnected.length;
+				counts[project.id] = project.files || 0;
 			});
 			return counts;
 		}
@@ -534,14 +523,17 @@ export default {
 				color: var(--file-pdf);
 				background-color: rgba(220, 38, 38, 0.1);
 			}
+
 			&.file-excel {
 				color: var(--file-excel);
 				background-color: rgba(22, 163, 74, 0.1);
 			}
+
 			&.file-text {
 				color: var(--file-text);
 				background-color: rgba(37, 99, 235, 0.1);
 			}
+
 			&.file-image {
 				color: var(--file-image);
 				background-color: rgba(124, 58, 237, 0.1);
@@ -664,6 +656,7 @@ export default {
 		opacity: 0;
 		transform: translateY(-20px) scale(0.95);
 	}
+
 	to {
 		opacity: 1;
 		transform: translateY(0) scale(1);

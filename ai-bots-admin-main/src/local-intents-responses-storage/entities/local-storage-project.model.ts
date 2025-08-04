@@ -56,4 +56,10 @@ export class LocalStorageModel extends Model<LocalStorageModel> {
   })
   @Index
   public_link: string;
+
+  @Column({
+    type: DataType.INTEGER,
+    defaultValue: 0,
+  })
+  files: number;
 }

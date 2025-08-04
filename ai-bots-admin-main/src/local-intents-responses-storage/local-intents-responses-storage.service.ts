@@ -1,10 +1,5 @@
-import {
-  HttpException,
-  HttpStatus,
-  Injectable,
-  Logger,
-  OnModuleInit,
-} from '@nestjs/common';
+/* eslint-disable @typescript-eslint/ban-types */
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import {
   ICreateLocalStorageDTO,
@@ -179,7 +174,7 @@ export class LocalIntentsResponsesStorageService {
   ) {
     const dataInput: ITrainingInput | {} = await new Promise(
       (resolve, reject) => {
-        const result: ITrainingInput[] = [];
+        // const result: ITrainingInput[] = [];
         if (params.mode === 'csv') {
           resolve(this.parseCsv(trainCsv));
         }
@@ -226,7 +221,7 @@ export class LocalIntentsResponsesStorageService {
       where: {
         bot_id: config.bot_id,
       },
-      order: [['id', 'ASC']],
+      order: [['updatedAt', 'DESC']],
     });
   }
 
