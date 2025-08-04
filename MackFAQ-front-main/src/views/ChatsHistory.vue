@@ -28,23 +28,24 @@
                     <span class="chat-count" v-if="allChatsList">{{ allChatsList.length }} conversations</span>
                 </div>
                 <div class="card-body">
-                    <div class="chats-grid" v-if="allChatsList && allChatsList.length">
-                        <div 
-                            v-for="chat in allChatsList" 
-                            :key="chat.id"
-                            class="chat-card"
-                            @click="() => openChatHistoryModal(chat.id)"
-                        >
-                            <div class="chat-preview">
-                                <h4 class="chat-title">{{ chat.messages_slug }}</h4>
-                                <p class="chat-date">{{ formatDate(chat.createdAt) }}</p>
+                    <!-- Loading State -->
+                    <div v-if="isLoadingConversations" class="loading-state">
+                        <div class="loading-content">
+                            <div class="loading-spinner">
+                                <i class="fas fa-spinner fa-spin"></i>
                             </div>
-                            <div class="chat-actions">
-                                <i class="fas fa-chevron-right"></i>
-                            </div>
+                            <h3>Loading Conversations...</h3>
+                            <p>Please wait while we fetch your conversation history.</p>
                         </div>
                     </div>
-                    <div v-else-if="project_id" class="empty-state">
+
+                    <!-- Conversations Table -->
+                    <ConversationsTable v-else-if="allChatsList && allChatsList.length" :conversations="allChatsList"
+                        :selectedConversation="selectedConversation" @conversation-selected="handleConversationSelected"
+                        @action-triggered="handleConversationAction" />
+
+                    <!-- Empty State -->
+                    <div v-else-if="project_id && !isLoadingConversations" class="empty-state">
                         <div class="empty-content">
                             <i class="fas fa-comments empty-icon"></i>
                             <h3>No Conversations Yet</h3>
@@ -121,6 +122,7 @@ import ListOfProjects from '@/components/Projects/ListOfProjects.vue';
 import Textarea from '@/components/Textarea.vue';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import QAEditor from '@/components/QAEditor.vue';
+import ConversationsTable from '@/components/Conversations/ConversationsTable.vue';
 
 export default {
     components: {
@@ -128,16 +130,19 @@ export default {
         ListOfProjects,
         Textarea,
         FontAwesomeIcon,
-        QAEditor
+        QAEditor,
+        ConversationsTable
     },
     data() {
         return {
-            project_id: this.DEFAULT_PROJECT_ID ?? 0,
+            project_id: null, // Initially no project selected
             training_data: null,
             project_prompt_prefix: null,
             showChat: false,
             qaEditor: false,
             currentChatId: null,
+            selectedConversation: null,
+            isLoadingConversations: false,
 
             chatsTimer: null,
         }
@@ -187,20 +192,29 @@ export default {
         }
     },
     watch: {
-        project_id(newValue) {
-            if (newValue) {
-                this.$store.dispatch('updateProjectTrainingData', { project_id: newValue });
-                this.$store.dispatch('updateProjectConversationsList', { project_id: newValue });
+        project_id(newValue, oldValue) {
+            if (newValue && newValue !== oldValue) {
+                this.isLoadingConversations = true;
+                this.selectedConversation = null;
 
-                this.$store.dispatch('updateAvailableProjects')
-                    .then(() => {
-                        if (!this.project_id) {
-                            this.project_prompt_prefix = null;
-                            return;
-                        }
-                        this.project_prompt_prefix = this.projectsList[this.project_id]?.prompt_prefix  || '';
-                    });
-
+                // Load project data and conversations
+                Promise.all([
+                    this.$store.dispatch('updateProjectTrainingData', { project_id: newValue }),
+                    this.$store.dispatch('updateProjectConversationsList', { project_id: newValue }),
+                    this.$store.dispatch('updateAvailableProjects')
+                ]).then(() => {
+                    if (!this.project_id) {
+                        this.project_prompt_prefix = null;
+                        return;
+                    }
+                    this.project_prompt_prefix = this.projectsList[this.project_id]?.prompt_prefix || '';
+                }).finally(() => {
+                    this.isLoadingConversations = false;
+                });
+            } else if (!newValue) {
+                // Clear data when no project is selected
+                this.selectedConversation = null;
+                this.isLoadingConversations = false;
             }
         },
         savedTrainingData() {
@@ -307,6 +321,103 @@ Are you sure you want to upload the file?`)) {
             savingToast.dismiss();
 
             this.$toast.success('Saved', { position: 'top' })
+        },
+
+        handleConversationSelected(conversation) {
+            this.selectedConversation = conversation;
+            this.openChatHistoryModal(conversation.id);
+        },
+
+        handleConversationAction({ action, conversation, newName }) {
+            switch (action) {
+                case 'view':
+                    this.openChatHistoryModal(conversation.id);
+                    break;
+                case 'rename':
+                    this.renameConversation(conversation, newName);
+                    break;
+                case 'export':
+                    this.exportConversation(conversation);
+                    break;
+                case 'delete':
+                    this.deleteConversation(conversation);
+                    break;
+                default:
+                    console.warn('Unknown action:', action);
+            }
+        },
+
+        async renameConversation(conversation, newName) {
+            if (!newName) return;
+
+            try {
+                // Note: This would need to be implemented in the backend
+                // For now, we'll just show a message
+                this.$toast.info('Rename functionality would be implemented here', { position: 'top' });
+                console.log('Rename conversation', conversation.id, 'to', newName);
+            } catch (error) {
+                console.error('Failed to rename conversation:', error);
+                this.$toast.error('Failed to rename conversation', { position: 'top' });
+            }
+        },
+
+        async exportConversation(conversation) {
+            try {
+                // Create a simple text export of the conversation
+                await this.$store.dispatch('updateProjectConversation', { conversationId: conversation.id });
+                const chatData = this.$store.getters.getConversationData(conversation.id);
+
+                if (!chatData || !chatData.messages) {
+                    this.$toast.error('No conversation data to export', { position: 'top' });
+                    return;
+                }
+
+                let exportText = `Conversation: ${conversation.messages_slug || `Conversation ${conversation.id}`}\n`;
+                exportText += `Date: ${this.formatDate(conversation.createdAt)}\n`;
+                exportText += `Questions: ${chatData.messages.filter(msg => msg.type === 'user_message').length}\n\n`;
+                exportText += '--- Messages ---\n\n';
+
+                chatData.messages.forEach((message, index) => {
+                    const type = message.type === 'user_message' ? 'User' : 'AI';
+                    const timestamp = message.createdAt.replace('T', ' ').replace('Z', '').split('.')[0];
+                    exportText += `${type} (${timestamp}):\n${message.message}\n\n`;
+                });
+
+                // Create and download the file
+                const blob = new Blob([exportText], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `conversation_${conversation.id}_${new Date().toISOString().split('T')[0]}.txt`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+
+                this.$toast.success('Conversation exported successfully', { position: 'top' });
+            } catch (error) {
+                console.error('Failed to export conversation:', error);
+                this.$toast.error('Failed to export conversation', { position: 'top' });
+            }
+        },
+
+        async deleteConversation(conversation) {
+            if (!window.confirm(`Are you sure you want to delete the conversation "${conversation.messages_slug || `Conversation ${conversation.id}`}"?\n\nThis action cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                // Note: This would need to be implemented in the backend
+                // For now, we'll just show a message
+                this.$toast.info('Delete functionality would be implemented here', { position: 'top' });
+                console.log('Delete conversation', conversation.id);
+
+                // After successful deletion, refresh the conversations list
+                // this.$store.dispatch('updateProjectConversationsList', { project_id: this.project_id });
+            } catch (error) {
+                console.error('Failed to delete conversation:', error);
+                this.$toast.error('Failed to delete conversation', { position: 'top' });
+            }
         }
     }
 }
@@ -314,194 +425,231 @@ Are you sure you want to upload the file?`)) {
 
 <style lang="scss">
 .modern-chats-page {
-  min-height: 100vh;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-
-  .chats-header {
-    background: rgba(255, 255, 255, 0.95);
+    min-height: 100vh;
+    background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    padding: 2rem 0;
-    margin-bottom: 2rem;
 
-    .header-content {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 2rem;
-      text-align: center;
+    .chats-header {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 2rem 0;
+        margin-bottom: 2rem;
 
-      h1 {
-        margin: 0 0 0.5rem 0;
-        font-size: 2.5rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-      }
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            text-align: center;
 
-      .subtitle {
-        margin: 0;
-        font-size: 1.125rem;
-        color: var(--gray-600);
-      }
+            h1 {
+                margin: 0 0 0.5rem 0;
+                font-size: 2.5rem;
+                font-weight: 700;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+
+            .subtitle {
+                margin: 0;
+                font-size: 1.125rem;
+                color: var(--gray-600);
+            }
+        }
     }
-  }
 
-  .chats-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 2rem;
-    display: grid;
-    gap: 2rem;
-  }
+    .chats-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 2rem;
+        display: grid;
+        gap: 2rem;
+    }
 
-  .card {
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .card {
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
 
-      h3 {
+            h3 {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin: 0;
+
+                i {
+                    color: var(--primary-blue);
+                }
+            }
+
+            .chat-count {
+                background: var(--primary-blue);
+                color: white;
+                padding: 0.25rem 0.75rem;
+                border-radius: 1rem;
+                font-size: 0.75rem;
+                font-weight: 600;
+            }
+        }
+    }
+
+    .chats-grid {
+        display: grid;
+        gap: 1rem;
+
+        .chat-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.5rem;
+            background: white;
+            border: 1px solid var(--gray-200);
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+
+            &:hover {
+                border-color: var(--primary-blue);
+                box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+                transform: translateY(-2px);
+            }
+
+            .chat-preview {
+                flex: 1;
+
+                .chat-title {
+                    margin: 0 0 0.25rem 0;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    color: var(--gray-900);
+                    line-height: 1.4;
+                }
+
+                .chat-date {
+                    margin: 0;
+                    font-size: 0.875rem;
+                    color: var(--gray-600);
+                }
+            }
+
+            .chat-actions {
+                color: var(--gray-400);
+                font-size: 1.25rem;
+                transition: all 0.2s ease;
+            }
+
+            &:hover .chat-actions {
+                color: var(--primary-blue);
+                transform: translateX(4px);
+            }
+        }
+    }
+
+    .loading-state {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        margin: 0;
+        justify-content: center;
+        min-height: 300px;
+        padding: 2rem;
 
-        i {
-          color: var(--primary-blue);
+        .loading-content {
+            text-align: center;
+            max-width: 400px;
+
+            .loading-spinner {
+                font-size: 3rem;
+                color: var(--primary-blue);
+                margin-bottom: 1rem;
+
+                i {
+                    animation: spin 1s linear infinite;
+                }
+            }
+
+            h3 {
+                margin: 0 0 0.5rem 0;
+                color: var(--gray-700);
+                font-size: 1.25rem;
+                font-weight: 600;
+            }
+
+            p {
+                margin: 0;
+                color: var(--gray-500);
+                font-size: 0.875rem;
+                line-height: 1.5;
+            }
         }
-      }
-
-      .chat-count {
-        background: var(--primary-blue);
-        color: white;
-        padding: 0.25rem 0.75rem;
-        border-radius: 1rem;
-        font-size: 0.75rem;
-        font-weight: 600;
-      }
     }
-  }
 
-  .chats-grid {
-    display: grid;
-    gap: 1rem;
+    .empty-state {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 300px;
+        padding: 2rem;
 
-    .chat-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1rem 1.5rem;
-      background: white;
-      border: 1px solid var(--gray-200);
-      border-radius: 0.5rem;
-      cursor: pointer;
-      transition: all 0.2s ease;
+        .empty-content {
+            text-align: center;
+            max-width: 400px;
 
-      &:hover {
-        border-color: var(--primary-blue);
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
-        transform: translateY(-2px);
-      }
+            .empty-icon {
+                font-size: 4rem;
+                color: var(--gray-300);
+                margin-bottom: 1rem;
+            }
 
-      .chat-preview {
-        flex: 1;
+            h3 {
+                margin: 0 0 0.5rem 0;
+                color: var(--gray-700);
+                font-size: 1.25rem;
+                font-weight: 600;
+            }
 
-        .chat-title {
-          margin: 0 0 0.25rem 0;
-          font-size: 1rem;
-          font-weight: 600;
-          color: var(--gray-900);
-          line-height: 1.4;
+            p {
+                margin: 0;
+                color: var(--gray-500);
+                font-size: 0.875rem;
+                line-height: 1.5;
+            }
         }
-
-        .chat-date {
-          margin: 0;
-          font-size: 0.875rem;
-          color: var(--gray-600);
-        }
-      }
-
-      .chat-actions {
-        color: var(--gray-400);
-        font-size: 1.25rem;
-        transition: all 0.2s ease;
-      }
-
-      &:hover .chat-actions {
-        color: var(--primary-blue);
-        transform: translateX(4px);
-      }
     }
-  }
-
-  .empty-state {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 300px;
-    padding: 2rem;
-
-    .empty-content {
-      text-align: center;
-      max-width: 400px;
-
-      .empty-icon {
-        font-size: 4rem;
-        color: var(--gray-300);
-        margin-bottom: 1rem;
-      }
-
-      h3 {
-        margin: 0 0 0.5rem 0;
-        color: var(--gray-700);
-        font-size: 1.25rem;
-        font-weight: 600;
-      }
-
-      p {
-        margin: 0;
-        color: var(--gray-500);
-        font-size: 0.875rem;
-        line-height: 1.5;
-      }
-    }
-  }
 }
 
 // Responsive Design
 @media (max-width: 1024px) {
-  .modern-chats-page {
-    .chats-content {
-      padding: 0 1rem;
-    }
+    .modern-chats-page {
+        .chats-content {
+            padding: 0 1rem;
+        }
 
-    .chats-header .header-content {
-      padding: 0 1rem;
+        .chats-header .header-content {
+            padding: 0 1rem;
 
-      h1 {
-        font-size: 2rem;
-      }
+            h1 {
+                font-size: 2rem;
+            }
+        }
     }
-  }
 }
 
 @media (max-width: 640px) {
-  .modern-chats-page {
-    .chats-header .header-content h1 {
-      font-size: 1.75rem;
-    }
+    .modern-chats-page {
+        .chats-header .header-content h1 {
+            font-size: 1.75rem;
+        }
 
-    .chats-grid .chat-card {
-      padding: 1rem;
+        .chats-grid .chat-card {
+            padding: 1rem;
 
-      .chat-preview .chat-title {
-        font-size: 0.875rem;
-      }
+            .chat-preview .chat-title {
+                font-size: 0.875rem;
+            }
+        }
     }
-  }
 }
 
 // Legacy styles for modal
@@ -510,6 +658,7 @@ table.chats-list {
         padding: 5px 0px;
     }
 }
+
 .chat-messages {
     overflow-y: scroll;
     margin-top: 20px;
@@ -696,14 +845,15 @@ table.chats-list {
 </style>
 
 <style scoped>
-
 table {
     border-collapse: collapse;
 }
+
 tr {
     border-bottom: 1px solid #bdc3cb;
 }
+
 tr:last-child {
-  border-bottom: none;
+    border-bottom: none;
 }
 </style>
