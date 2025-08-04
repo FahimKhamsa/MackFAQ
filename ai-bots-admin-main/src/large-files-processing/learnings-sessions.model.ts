@@ -92,6 +92,36 @@ export class LearningSession extends Model<LearningSession> {
   })
   original_mime_type: string;
 
+  @Column({
+    type: DataType.STRING(500),
+    defaultValue: null,
+  })
+  file_path: string;
+
+  @Column({
+    type: DataType.BOOLEAN,
+    defaultValue: false,
+  })
+  is_trained: boolean;
+
+  @Column({
+    type: DataType.ENUM('pending', 'training', 'completed', 'failed'),
+    defaultValue: 'pending',
+  })
+  training_status: 'pending' | 'training' | 'completed' | 'failed';
+
+  @Column({
+    type: DataType.DATE,
+    defaultValue: null,
+  })
+  trained_at: Date;
+
+  @Column({
+    type: DataType.TEXT,
+    defaultValue: null,
+  })
+  training_error: string;
+
   @HasMany(() => LearningSessionProjectConnection, 'learning_session_id')
   connections: LearningSessionProjectConnection;
 }

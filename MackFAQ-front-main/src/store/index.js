@@ -316,6 +316,161 @@ export default createStore({
         console.error('Failed to delete project:', error);
         throw error;
       }
+    },
+
+    async uploadFile(context, { file, projectId }) {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        let params;
+        if (projectId) {
+          params = { bot_id: API_BOT_ID, project_id: projectId };
+        } else {
+          params = { bot_id: API_BOT_ID };
+        }
+
+        console.log('Uploading file:', file.name, 'with params:', params);
+
+        const response = await axiosConfigured.post(API_URL + "/api/upload-file", formData, {
+          params: params,
+          // Don't set Content-Type header - let browser set it automatically with boundary
+        });
+
+        console.log('File upload response:', response.data);
+
+        // Refresh the files list after successful upload
+        await context.dispatch('myLoadedFiles');
+
+        // If projectId is provided, also refresh project-specific data
+        if (projectId) {
+          await context.dispatch('updateProjectSavedKnowledge', { project_id: projectId });
+        }
+
+        return response.data;
+      } catch (error) {
+        console.error('Failed to upload file:', error);
+        throw error;
+      }
+    },
+
+    async trainFiles(context, { projectId }) {
+      try {
+        const params = { bot_id: API_BOT_ID, project_id: projectId };
+
+        console.log('Training files with params:', params);
+
+        const response = await axiosConfigured.post(API_URL + "/api/train-files", {}, {
+          params: params,
+        });
+
+        console.log('Training response:', response.data);
+
+        // Refresh the files list after successful training
+        await context.dispatch('myLoadedFiles');
+
+        // Refresh project-specific data
+        if (projectId) {
+          await context.dispatch('updateProjectSavedKnowledge', { project_id: projectId });
+        }
+
+        return response.data;
+      } catch (error) {
+        console.error('Failed to train files:', error);
+        throw error;
+      }
+    },
+
+    async getPendingFiles(context, { projectId }) {
+      try {
+        const params = { bot_id: API_BOT_ID, project_id: projectId };
+
+        const response = await axiosConfigured.get(API_URL + "/api/pending-files", {
+          params: params,
+        });
+
+        return response.data.data || [];
+      } catch (error) {
+        console.error('Failed to get pending files:', error);
+        return [];
+      }
+    },
+
+    async uploadAndTrainFile(context, { file, projectId }) {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        let params;
+        if (projectId) {
+          params = { bot_id: API_BOT_ID, project_id: projectId };
+        } else {
+          params = { bot_id: API_BOT_ID };
+        }
+
+        console.log('Uploading and training file:', file.name, 'with params:', params);
+
+        const response = await axiosConfigured.post(API_URL + "/api/train", formData, {
+          params: params,
+          // Don't set Content-Type header - let browser set it automatically with boundary
+        });
+
+        console.log('File upload and train response:', response.data);
+
+        // Refresh the files list after successful upload and training
+        await context.dispatch('myLoadedFiles');
+
+        // If projectId is provided, also refresh project-specific data
+        if (projectId) {
+          await context.dispatch('updateProjectSavedKnowledge', { project_id: projectId });
+        }
+
+        return response.data;
+      } catch (error) {
+        console.error('Failed to upload and train file:', error);
+        throw error;
+      }
+    },
+
+    async updateAIConfig(context, { systemPrompt }) {
+      try {
+        const response = await axiosConfigured.post(API_URL + "/api/update-bot-prompt", {
+          id: API_BOT_ID,
+          prompt_prefix: systemPrompt,
+          prompt_answer_pre_prefix: systemPrompt,
+        });
+
+        // Refresh bot data after update
+        await context.dispatch('updateBotPreprompt');
+
+        return response.data;
+      } catch (error) {
+        console.error('Failed to update AI config:', error);
+        throw error;
+      }
+    },
+
+    async downloadFile(context, { fileId, fileName }) {
+      try {
+        const response = await axiosConfigured.get(API_URL + `/api/files/${fileId}/download`, {
+          responseType: "blob",
+        });
+
+        // Create download link
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", fileName);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+
+        return true;
+      } catch (error) {
+        console.error('Failed to download file:', error);
+        throw error;
+      }
     }
   },
   modules: {

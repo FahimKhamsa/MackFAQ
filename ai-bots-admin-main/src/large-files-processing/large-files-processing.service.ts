@@ -15,6 +15,8 @@ import { InjectModel } from '@nestjs/sequelize';
 import { Readable } from 'stream';
 import * as FormData from 'form-data';
 import { LearningSessionProjectConnection } from './learnings-sessions-project-connection.model';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class LargeFilesProcessingService implements OnModuleInit {
@@ -108,11 +110,11 @@ export class LargeFilesProcessingService implements OnModuleInit {
     config: { prompt?: string },
   ) {
     console.log('Start');
-    // const result = await firstValueFrom(this.httpService.post('https://aidocs.kaizencloud.net/v1/chunks', { context_filter: { docs_ids: docsIds }, text: input })
+    // const result = await firstValueFrom(this.httpService.post('https://rag.kaizenapps.com/v1/chunks', { context_filter: { docs_ids: docsIds }, text: input })
     //     .pipe(map(e => e?.data?.data?.[0]?.text ?? null)));
     const result = await firstValueFrom(
       this.httpService
-        .post('https://aidocs.kaizencloud.net/v1/chunks', {
+        .post('https://rag.kaizenapps.com/v1/chunks', {
           context_filter: { docs_ids: docsIds },
           text: input,
         })
@@ -155,7 +157,7 @@ export class LargeFilesProcessingService implements OnModuleInit {
 
     const chatResult = await firstValueFrom(
       this.httpService
-        .post('https://aidocs.kaizencloud.net/v1/chat/completions', {
+        .post('https://rag.kaizenapps.com/v1/chat/completions', {
           context_filter: { docs_ids: docsList },
           include_sources: true,
           messages: messages,
@@ -306,6 +308,24 @@ export class LargeFilesProcessingService implements OnModuleInit {
   }
 
   public async deleteDoc(id: number) {
+    // Get the file record first to access the file path
+    const fileRecord = await this.learningSession.findByPk(id);
+
+    if (
+      fileRecord &&
+      fileRecord.file_path &&
+      fs.existsSync(fileRecord.file_path)
+    ) {
+      try {
+        // Delete the physical file from disk
+        fs.unlinkSync(fileRecord.file_path);
+        console.log('File deleted from disk:', fileRecord.file_path);
+      } catch (error) {
+        console.error('Failed to delete file from disk:', error);
+        // Continue with database deletion even if file deletion fails
+      }
+    }
+
     const deleteResult = await this.learningSession.destroy({
       where: {
         id,
@@ -374,7 +394,7 @@ export class LargeFilesProcessingService implements OnModuleInit {
 
     const chatResult = await firstValueFrom(
       this.httpService
-        .post('https://aidocs.kaizencloud.net/v1/ingest/file', formData, {
+        .post('https://rag.kaizenapps.com/v1/ingest/file', formData, {
           headers: { ...formData.getHeaders() },
         })
         .pipe(map((e) => e?.data?.data?.map((v) => v.doc_id))),
@@ -394,12 +414,107 @@ export class LargeFilesProcessingService implements OnModuleInit {
     }
   }
 
+  private ensureStorageDirectory(dirPath: string): void {
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+  }
+
+  private generateFilePath(
+    projectId: number,
+    sessionId: number,
+    fileName: string,
+  ): string {
+    const storageDir = path.join(
+      process.cwd(),
+      'storage',
+      'uploads',
+      projectId.toString(),
+    );
+    this.ensureStorageDirectory(storageDir);
+
+    // Sanitize filename to prevent path traversal
+    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+    return path.join(storageDir, `${sessionId}_${sanitizedFileName}`);
+  }
+
+  public async uploadFileOnly(
+    file: { content: Buffer; name: string; mimetype: string },
+    config: { project_id: number; bot_id: number; creator_id: number },
+  ) {
+    console.log('Inside large-file-processing-service --> uploadFileOnly:');
+    console.log('Uploading file', file.name);
+    console.log('project_id', config.project_id);
+    console.log('bot_id', config.bot_id);
+    console.log('creator_id', config.creator_id);
+
+    const session = new this.learningSession();
+
+    let fname = file.name;
+    if (fname.length > 253) {
+      fname = fname.slice(0, 250) + '...';
+    }
+
+    session.file_name = fname;
+    session.project_id = config.project_id;
+    session.bot_id = config.bot_id;
+    session.creator_id = config.creator_id;
+    session.docs_ids_from_provider = []; // Empty until trained
+    session.provider_id = 'private-api';
+
+    // Add metadata fields
+    session.file_category = this.detectFileCategory(file.name, file.mimetype);
+    session.page_count = this.estimatePageCount(file.content, file.mimetype);
+    session.file_size = file.content.length;
+    session.original_mime_type = file.mimetype;
+
+    // Set training status fields
+    session.is_trained = false;
+    session.training_status = 'pending';
+    session.trained_at = null;
+    session.training_error = null;
+
+    // Save to get the session ID first
+    await session.save();
+
+    try {
+      // Generate file path and save file to disk
+      const filePath = this.generateFilePath(
+        config.project_id,
+        session.id,
+        file.name,
+      );
+      fs.writeFileSync(filePath, file.content);
+
+      // Update session with file path
+      session.file_path = filePath;
+      await session.save();
+
+      console.log('File saved to:', filePath);
+    } catch (error) {
+      console.error('Failed to save file to disk:', error);
+      // Clean up the database record if file save failed
+      await session.destroy();
+      throw new BadRequestException('Failed to save file to storage');
+    }
+
+    return session;
+  }
+
   public async learnProviderWithFile(
     providerName: 'private-api',
     file: { content: Buffer; name: string; mimetype: string },
     config: { project_id: number; bot_id: number; creator_id: number },
   ) {
     let docsIds = [];
+    console.log(
+      'Inside large-file-processing-service --> learnProviderWithFile:',
+    );
+    console.log('Learning with file', file.name);
+    console.log('providerName', providerName);
+    console.log('project_id', config.project_id);
+    console.log('bot_id', config.bot_id);
+    console.log('creator_id', config.creator_id);
     if (providerName === 'private-api') {
       docsIds = await this.learnPrivateApi(file);
     }
@@ -424,6 +539,12 @@ export class LargeFilesProcessingService implements OnModuleInit {
     session.page_count = this.estimatePageCount(file.content, file.mimetype);
     session.file_size = file.content.length;
     session.original_mime_type = file.mimetype;
+
+    // Set training status fields for immediate training
+    session.is_trained = true;
+    session.training_status = 'completed';
+    session.trained_at = new Date();
+    session.training_error = null;
 
     await session.save();
   }
@@ -566,6 +687,105 @@ export class LargeFilesProcessingService implements OnModuleInit {
         '$learning_session.bot_id$': bot_id,
       },
       include: ['learning_session'],
+    });
+  }
+
+  public async trainPendingFiles(config: {
+    project_id: number;
+    bot_id: number;
+  }) {
+    console.log('Training pending files for project:', config.project_id);
+
+    // Get all pending files for this project
+    const pendingFiles = await this.learningSession.findAll({
+      where: {
+        project_id: config.project_id,
+        bot_id: config.bot_id,
+        is_trained: false,
+        training_status: 'pending',
+      },
+    });
+
+    if (pendingFiles.length === 0) {
+      return { message: 'No pending files to train', trainedCount: 0 };
+    }
+
+    const results = [];
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (const file of pendingFiles) {
+      try {
+        // Update status to training
+        file.training_status = 'training';
+        await file.save();
+
+        // Read the actual file content from disk
+        if (!file.file_path || !fs.existsSync(file.file_path)) {
+          throw new Error(`File not found on disk: ${file.file_path}`);
+        }
+
+        const fileContent = fs.readFileSync(file.file_path);
+
+        // Create file object for training with actual content
+        const fileForTraining = {
+          content: fileContent,
+          name: file.file_name,
+          mimetype: file.original_mime_type,
+        };
+
+        // Train the file using the existing API
+        const docsIds = await this.learnPrivateApi(fileForTraining);
+
+        // Update the file with training results
+        file.docs_ids_from_provider = docsIds;
+        file.is_trained = true;
+        file.training_status = 'completed';
+        file.trained_at = new Date();
+        file.training_error = null;
+        await file.save();
+
+        results.push({
+          id: file.id,
+          name: file.file_name,
+          status: 'success',
+          docsIds: docsIds,
+        });
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to train file ${file.file_name}:`, error);
+
+        // Update file with error status
+        file.training_status = 'failed';
+        file.training_error = error.message;
+        await file.save();
+
+        results.push({
+          id: file.id,
+          name: file.file_name,
+          status: 'failed',
+          error: error.message,
+        });
+        failureCount++;
+      }
+    }
+
+    return {
+      message: `Training completed: ${successCount} successful, ${failureCount} failed`,
+      trainedCount: successCount,
+      failedCount: failureCount,
+      results: results,
+    };
+  }
+
+  public async getPendingFiles(config: { project_id: number; bot_id: number }) {
+    return this.learningSession.findAll({
+      where: {
+        project_id: config.project_id,
+        bot_id: config.bot_id,
+        is_trained: false,
+        training_status: 'pending',
+      },
     });
   }
 

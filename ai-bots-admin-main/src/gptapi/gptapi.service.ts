@@ -161,7 +161,7 @@ export class GptapiService {
           headers: {
             'Content-Type': 'application/json',
             Authorization: 'Bearer ' + this.gptApiConfig.openrouter_api_key,
-            'HTTP-Referer': process.env.APP_URL || 'http://localhost:3000',
+            'HTTP-Referer': process.env.APP_URL || 'http://localhost:8080',
             'X-Title': 'Multi Project Management SOP Framework',
           },
         })
@@ -181,7 +181,7 @@ export class GptapiService {
   public async getComplete4(
     messages: { role: 'assistant' | 'user' | 'system'; content: string }[],
     model = 'gpt-3.5-turbo',
-    provider: 'openai' | 'openrouter' = 'openrouter',
+    provider: 'openai' | 'openrouter' = 'openai',
   ) {
     // Try OpenRouter first (primary), fallback to OpenAI automatically
     if (provider === 'openrouter') {

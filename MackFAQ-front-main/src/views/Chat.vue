@@ -14,17 +14,9 @@
 					<!-- Project Selector -->
 					<div class="control-group">
 						<label class="control-label">Project Context</label>
-						<select
-							v-model="selectedProject"
-							@change="updateChatContext"
-							class="context-select"
-						>
+						<select v-model="selectedProject" @change="updateChatContext" class="context-select">
 							<option value="">General Knowledge</option>
-							<option
-								v-for="project in projects"
-								:key="project.id"
-								:value="project.id"
-							>
+							<option v-for="project in projects" :key="project.id" :value="project.id">
 								{{ project.name }}
 							</option>
 						</select>
@@ -33,11 +25,7 @@
 					<!-- SOP Toggle -->
 					<div class="control-group">
 						<label class="toggle-label">
-							<input
-								type="checkbox"
-								v-model="includeSOP"
-								@change="updateSOPSetting"
-							/>
+							<input type="checkbox" v-model="includeSOP" @change="updateSOPSetting" />
 							<span class="toggle-text">SOP Cross-Reference</span>
 						</label>
 					</div>
@@ -45,11 +33,7 @@
 					<!-- AI Model Selector -->
 					<div class="control-group">
 						<label class="control-label">AI Model</label>
-						<select
-							v-model="selectedModel"
-							@change="updateModelSetting"
-							class="context-select"
-						>
+						<select v-model="selectedModel" @change="updateModelSetting" class="context-select">
 							<option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
 							<option value="gpt-4">GPT-4</option>
 							<option value="anthropic/claude-3">Claude 3</option>
@@ -74,40 +58,23 @@
 				</div>
 			</div>
 
-			<div
-				v-for="(question, index) in questions"
-				:key="index"
-				:class="[
-					'message',
-					question.type === 'question'
-						? 'user-message'
-						: 'ai-message',
-				]"
-			>
+			<div v-for="(question, index) in questions" :key="index" :class="[
+				'message',
+				question.type === 'question'
+					? 'user-message'
+					: 'ai-message',
+			]">
 				<div class="message-avatar">
-					<i
-						:class="
-							question.type === 'question'
-								? 'fas fa-user'
-								: 'fas fa-robot'
-						"
-					></i>
+					<i :class="question.type === 'question'
+							? 'fas fa-user'
+							: 'fas fa-robot'
+						"></i>
 				</div>
 				<div class="message-content">
-					<div
-						class="message-text"
-						v-html="formatMessage(question.text)"
-					></div>
-					<div
-						v-if="question.sources && question.sources.length"
-						class="message-sources"
-					>
+					<div class="message-text" v-html="formatMessage(question.text)"></div>
+					<div v-if="question.sources && question.sources.length" class="message-sources">
 						<h4>Sources:</h4>
-						<div
-							v-for="source in question.sources"
-							:key="source.id"
-							class="source-item"
-						>
+						<div v-for="source in question.sources" :key="source.id" class="source-item">
 							<i :class="getFileIcon(source.file_type)"></i>
 							<span class="source-name">{{
 								source.file_name
@@ -117,19 +84,12 @@
 							}}</span>
 						</div>
 					</div>
-					<div
-						v-if="
-							question.sopReferences &&
-							question.sopReferences.length
-						"
-						class="sop-references"
-					>
+					<div v-if="
+						question.sopReferences &&
+						question.sopReferences.length
+					" class="sop-references">
 						<h4>SOP References:</h4>
-						<div
-							v-for="sop in question.sopReferences"
-							:key="sop.id"
-							class="sop-item"
-						>
+						<div v-for="sop in question.sopReferences" :key="sop.id" class="sop-item">
 							<i class="fas fa-book"></i>
 							<span class="sop-title">{{ sop.title }}</span>
 							<span class="sop-category">{{ sop.category }}</span>
@@ -146,35 +106,20 @@
 		<div class="chat-input">
 			<div class="input-container">
 				<div class="input-wrapper">
-					<textarea
-						v-model="form.text"
-						@keydown.enter.prevent="handleEnterKey"
-						:placeholder="getInputPlaceholder()"
-						class="input-field"
-						rows="1"
-						ref="messageInput"
-					>
+					<textarea v-model="form.text" @keydown.enter.prevent="handleEnterKey" :placeholder="getInputPlaceholder()"
+						class="input-field" rows="1" ref="messageInput">
 					</textarea>
-					<button
-						@click="sendMessage"
-						:disabled="!form.text.trim() || isLoading"
-						:class="['send-button', { loading: isLoading }]"
-					>
+					<button @click="sendMessage" :disabled="!form.text.trim() || isLoading"
+						:class="['send-button', { loading: isLoading }]">
 						<i v-if="!isLoading" class="fas fa-paper-plane"></i>
 						<i v-else class="fas fa-spinner fa-spin"></i>
 					</button>
 				</div>
 
 				<!-- Context Status -->
-				<div
-					class="context-status"
-					v-if="selectedProject || includeSOP"
-				>
+				<div class="context-status" v-if="selectedProject || includeSOP">
 					<div class="status-items">
-						<span
-							v-if="selectedProject"
-							class="status-item project-context"
-						>
+						<span v-if="selectedProject" class="status-item project-context">
 							<i class="fas fa-folder"></i>
 							{{ getProjectName(selectedProject) }}
 						</span>
@@ -198,17 +143,9 @@
 				</div>
 				<div class="modal-body">
 					<div class="file-selection">
-						<div
-							v-for="file in projectFiles"
-							:key="file.id"
-							class="file-option"
-						>
+						<div v-for="file in projectFiles" :key="file.id" class="file-option">
 							<label class="checkbox-label">
-								<input
-									type="checkbox"
-									v-model="selectedFiles"
-									:value="file.id"
-								/>
+								<input type="checkbox" v-model="selectedFiles" :value="file.id" />
 								<span class="checkbox-text">
 									<i :class="getFileIcon(file.file_type)"></i>
 									{{ file.original_name }}
@@ -221,16 +158,10 @@
 					</div>
 				</div>
 				<div class="modal-footer">
-					<button
-						@click="closeFileModal"
-						class="btn-modern btn-secondary"
-					>
+					<button @click="closeFileModal" class="btn-modern btn-secondary">
 						Cancel
 					</button>
-					<button
-						@click="applyFileSelection"
-						class="btn-modern btn-primary"
-					>
+					<button @click="applyFileSelection" class="btn-modern btn-primary">
 						Apply Selection
 					</button>
 				</div>

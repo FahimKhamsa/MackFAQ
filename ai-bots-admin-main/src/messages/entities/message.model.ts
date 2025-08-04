@@ -32,7 +32,7 @@ export class MessageModel extends Model<MessageModel> {
 
   @Column({
     type: DataType.STRING(100),
-    unique: true,
+    // unique: true, // Temporarily commented out due to MySQL 64 index limit
     defaultValue: null,
   })
   unique_id: string;

@@ -219,8 +219,7 @@ export default {
 					// Use the existing backend endpoint for file upload
 					await axios.post("/api/train", formData, {
 						params: {
-							bot_id: process.env.VUE_APP_API_BOT_ID,
-							project_id: this.selectedProject.id,
+							bot_id: parseInt(process.env.VUE_APP_API_BOT_ID),
 						},
 						headers: {
 							"Content-Type": "multipart/form-data",

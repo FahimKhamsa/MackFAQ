@@ -174,6 +174,28 @@
           </div>
         </div>
 
+        <!-- Train AI Card -->
+        <div class="card full-width" v-if="project_id">
+          <div class="card-header">
+            <h3><i class="fas fa-brain"></i> AI Training</h3>
+          </div>
+          <div class="card-body">
+            <div class="training-section">
+              <p class="training-description">
+                Upload your files first, then click "Train AI" to process all pending files and train your AI assistant.
+              </p>
+              <button 
+                @click="trainAI"
+                class="btn-modern btn-primary btn-large"
+                ref="trainButton"
+              >
+                <i class="fas fa-brain"></i>
+                Train AI
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Available Files Card -->
         <div class="card full-width" v-if="!reload && availableFiles && availableFiles.length">
           <div class="card-header">
@@ -396,7 +418,100 @@ export default {
     async chooseFile(e) {
       this.nameFile = e?.target?.files?.[0]?.name ?? null;
 
-      await this.sendForm();
+      await this.uploadFile();
+    },
+
+    async uploadFile() {
+      if (!this.project_id) {
+        this.$toast.error(`Please select Project`, { position: "top" });
+        return;
+      }
+      if (!this.$refs.file.files[0]) {
+        this.$toast.error("FAQ data is required", { position: "top" });
+        return;
+      }
+
+      this.$refs.submit.classList.add("preloader");
+      
+      try {
+        const file = this.$refs.file.files[0];
+        
+        await this.$store.dispatch('uploadFile', {
+          file: file,
+          projectId: this.project_id
+        });
+
+        this.$toast.success(`${file.name} uploaded successfully. Click "Train AI" to start training.`);
+        
+        // Clear the file input
+        this.$refs.file.value = null;
+        this.nameFile = "FAQ File<br> pdf, csv.";
+        
+        // Refresh the files list
+        this.reload = true;
+        await this.$store.dispatch("updateProjectSavedKnowledge", {
+          project_id: this.project_id,
+        });
+        setTimeout(() => {
+          this.reload = false;
+        }, 100);
+        
+      } catch (error) {
+        console.error('Upload failed:', error);
+        this.$toast.error(`Failed to upload file: ${error.message}`);
+      }
+
+      this.$refs.submit.classList.remove("preloader");
+    },
+
+    async trainAI() {
+      if (!this.project_id) {
+        this.$toast.error(`Please select Project`, { position: "top" });
+        return;
+      }
+
+      // Check if there are pending files
+      const pendingFiles = await this.$store.dispatch('getPendingFiles', {
+        projectId: this.project_id
+      });
+
+      if (pendingFiles.length === 0) {
+        this.$toast.info("No pending files to train. Upload some files first.");
+        return;
+      }
+
+      if (!window.confirm(`Train AI with ${pendingFiles.length} pending file(s)?`)) {
+        return;
+      }
+
+      this.$refs.trainButton.classList.add("preloader");
+      
+      try {
+        const result = await this.$store.dispatch('trainFiles', {
+          projectId: this.project_id
+        });
+
+        this.$toast.success(`Training completed: ${result.data.trainedCount} files trained successfully`);
+        
+        if (result.data.failedCount > 0) {
+          this.$toast.error(`${result.data.failedCount} files failed to train`);
+        }
+        
+        // Refresh the files list
+        this.reload = true;
+        await this.$store.dispatch("updateProjectSavedKnowledge", {
+          project_id: this.project_id,
+        });
+        setTimeout(() => {
+          this.reload = false;
+        }, 100);
+        
+      } catch (error) {
+        console.error('Training failed:', error);
+        this.$toast.error(`Failed to train files: ${error.message}`);
+      }
+
+      this.$refs.trainButton.classList.remove("preloader");
     },
     closeMessage(index) {
       this.message.splice(index, 1);
@@ -739,6 +854,26 @@ Are you sure you want to upload the file?`)
     display: flex;
     flex-direction: column;
     gap: 1rem;
+  }
+
+  // Training Section
+  .training-section {
+    text-align: center;
+    padding: 2rem;
+
+    .training-description {
+      margin: 0 0 1.5rem 0;
+      color: var(--gray-600);
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    .btn-large {
+      padding: 1rem 2rem;
+      font-size: 1.125rem;
+      font-weight: 600;
+      min-width: 200px;
+    }
   }
 
   // Modern Table

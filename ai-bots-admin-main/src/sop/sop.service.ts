@@ -103,7 +103,7 @@ export class SOPService {
 
     const chatResult = await firstValueFrom(
       this.httpService
-        .post('https://aidocs.kaizencloud.net/v1/ingest/file', formData, {
+        .post('https://rag.kaizenapps.com/v1/ingest/file', formData, {
           headers: { ...formData.getHeaders() },
         })
         .pipe(map((e) => e?.data?.data?.map((v) => v.doc_id))),

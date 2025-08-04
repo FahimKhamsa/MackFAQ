@@ -16,6 +16,9 @@ import { HttpModule } from '@nestjs/axios';
   imports: [
     GptapiModule.config({
       paramsFactory: async (configService: ConfigService) => {
+        const key = configService.get('OPEN_AI_API_KEY');
+        console.log('[DEBUG] Loaded OPEN_AI_API_KEY:', key); // 👈
+
         return {
           api_key: configService.get('OPEN_AI_API_KEY'),
         };
@@ -25,16 +28,29 @@ import { HttpModule } from '@nestjs/axios';
     }),
     LargeFilesProcessingModule.config({
       paramsFactory: async (configService: ConfigService) => {
+        const key = configService.get('OPEN_AI_API_KEY');
+        console.log('[DEBUG] Loaded OPEN_AI_API_KEY:', key); // 👈
+
         return {
-          PINECONE_INDEX_NAME: configService.get('LARGE_FILES_PROCESSING_SERVICE_PINECONE_INDEX_NAME'),
-          PINECONE_API_KEY: configService.get('LARGE_FILES_PROCESSING_SERVICE_PINECONE_API_KEY'),
-          PINECONE_ENVIRONMENT: configService.get('LARGE_FILES_PROCESSING_SERVICE_PINECONE_ENVIRONMENT'),
-          OPEN_AI_KEY: configService.get('LARGE_FILES_PROCESSING_SERVICE_OPEN_AI_KEY'),
+          PINECONE_INDEX_NAME: configService.get(
+            'LARGE_FILES_PROCESSING_SERVICE_PINECONE_INDEX_NAME',
+          ),
+          PINECONE_API_KEY: configService.get(
+            'LARGE_FILES_PROCESSING_SERVICE_PINECONE_API_KEY',
+          ),
+          PINECONE_ENVIRONMENT: configService.get(
+            'LARGE_FILES_PROCESSING_SERVICE_PINECONE_ENVIRONMENT',
+          ),
+          OPEN_AI_KEY: configService.get('OPEN_AI_API_KEY'),
         };
       },
       imports: [ConfigModule, HttpModule],
       inject: [ConfigService],
     }),
-    BotsModule, MessagesModule, RasaapiModule, LocalIntentsResponsesStorageModule]
+    BotsModule,
+    MessagesModule,
+    RasaapiModule,
+    LocalIntentsResponsesStorageModule,
+  ],
 })
-export class ApiModule { }
+export class ApiModule {}

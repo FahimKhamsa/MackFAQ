@@ -20,6 +20,10 @@
 						<i class="fas fa-upload"></i>
 						Upload Files
 					</button>
+					<button @click="trainAI" class="btn-modern btn-success" ref="trainButton">
+						<i class="fas fa-brain"></i>
+						Train AI
+					</button>
 				</div>
 			</div>
 		</div>
@@ -265,8 +269,6 @@
 </template>
 
 <script>
-import axios from "@/axios";
-
 export default {
 	name: "ProjectDetails",
 	data() {
@@ -333,9 +335,11 @@ export default {
 			if (!this.project) return;
 
 			try {
-				const response = await axios.get(`/api/bot-prompt?bot_id=${process.env.VUE_APP_API_BOT_ID}`);
-				if (response.data && response.data.data) {
-					this.aiConfig.systemPrompt = response.data.data.prompt_prefix || this.aiConfig.systemPrompt;
+				// Load AI config from store
+				await this.$store.dispatch('updateBotPreprompt');
+				const promptPrefix = this.$store.getters.getcurrent_bot_prompt_prefix;
+				if (promptPrefix) {
+					this.aiConfig.systemPrompt = promptPrefix;
 				}
 			} catch (error) {
 				console.error("Failed to load AI config:", error);
@@ -369,27 +373,72 @@ export default {
 				return;
 			}
 
+			// Check if user is authenticated
+			const profile = this.$store.getters.getProfile;
+			if (!profile) {
+				this.$toast.error("Please log in to upload files");
+				this.$router.push({ name: 'Login' });
+				return;
+			}
+
 			for (const file of files) {
 				const formData = new FormData();
+				// Only append the file - the backend expects just the 'file' field
 				formData.append("file", file);
-				formData.append("project_id", this.project.id);
-				formData.append("file_category", this.detectFileCategory(file.name));
 
 				try {
 					this.$toast.info(`Uploading ${file.name}...`);
-					await axios.post("/api/train", formData, {
-						params: {
-							bot_id: process.env.VUE_APP_API_BOT_ID,
-							project_id: this.project.id,
-						},
-						headers: {
-							"Content-Type": "multipart/form-data",
-						},
+					
+					// Ensure user is authenticated before making the request
+					await this.$store.dispatch('loadMe');
+					
+					// Debug logging
+					const token = localStorage.getItem('t');
+					console.log('Upload request details:', {
+						bot_id: parseInt(process.env.VUE_APP_API_BOT_ID),
+						project_id: this.project.id,
+						project_bot_id: this.project.bot_id,
+						file_name: file.name,
+						file_size: file.size,
+						file_type: file.type,
+						has_token: !!token,
+						token_preview: token ? token.substring(0, 20) + '...' : 'none',
+						project_object: this.project
 					});
+					
+					// Validate project belongs to bot before upload
+					if (this.project.bot_id !== parseInt(process.env.VUE_APP_API_BOT_ID)) {
+						this.$toast.error(`Project belongs to bot ${this.project.bot_id}, but trying to upload with bot ${process.env.VUE_APP_API_BOT_ID}`);
+						continue;
+					}
+					console.log('Project ID:', this.project.id);
+					
+					// Use store action for file upload
+					const response = await this.$store.dispatch('uploadFile', {
+						file: file,
+						projectId: this.project.id
+					});
+					
+					console.log('Upload response:', response);
 					this.$toast.success(`${file.name} uploaded successfully`);
 				} catch (error) {
 					console.error("File upload failed:", error);
-					this.$toast.error(`Failed to upload ${file.name}`);
+					console.error("Full error object:", error);
+					console.error("Error response:", error.response);
+					console.error("Error response data:", error.response?.data);
+					console.error("Error response status:", error.response?.status);
+					console.error("Error response headers:", error.response?.headers);
+					
+					if (error.response?.status === 401) {
+						this.$toast.error("Authentication required. Please log in again.");
+						this.$router.push({ name: 'Login' });
+					} else {
+						const errorMessage = error.response?.data?.message || 
+											error.response?.data?.error || 
+											error.response?.statusText || 
+											error.message;
+						this.$toast.error(`Failed to upload ${file.name}: ${errorMessage}`);
+					}
 				}
 			}
 
@@ -451,10 +500,8 @@ export default {
 
 		async updateAIConfig() {
 			try {
-				await axios.post("/api/update-bot-prompt", {
-					id: process.env.VUE_APP_API_BOT_ID,
-					prompt_prefix: this.aiConfig.systemPrompt,
-					prompt_answer_pre_prefix: this.aiConfig.systemPrompt,
+				await this.$store.dispatch('updateAIConfig', {
+					systemPrompt: this.aiConfig.systemPrompt
 				});
 				this.$toast.success("AI configuration updated");
 			} catch (error) {
@@ -480,6 +527,50 @@ export default {
 					this.$toast.error("Failed to delete file");
 				}
 			}
+		},
+
+		async trainAI() {
+			if (!this.project) {
+				this.$toast.error("Project not loaded");
+				return;
+			}
+
+			// Check if there are pending files
+			const pendingFiles = await this.$store.dispatch('getPendingFiles', {
+				projectId: this.project.id
+			});
+
+			if (pendingFiles.length === 0) {
+				this.$toast.info("No pending files to train. Upload some files first.");
+				return;
+			}
+
+			if (!window.confirm(`Train AI with ${pendingFiles.length} pending file(s)?`)) {
+				return;
+			}
+
+			this.$refs.trainButton.classList.add("preloader");
+			
+			try {
+				const result = await this.$store.dispatch('trainFiles', {
+					projectId: this.project.id
+				});
+
+				this.$toast.success(`Training completed: ${result.data.trainedCount} files trained successfully`);
+				
+				if (result.data.failedCount > 0) {
+					this.$toast.error(`${result.data.failedCount} files failed to train`);
+				}
+				
+				// Refresh the files list
+				await this.loadProjectFiles();
+				
+			} catch (error) {
+				console.error('Training failed:', error);
+				this.$toast.error(`Failed to train files: ${error.message}`);
+			}
+
+			this.$refs.trainButton.classList.remove("preloader");
 		},
 
 		async downloadFile(file) {
@@ -825,6 +916,34 @@ export default {
 	border-radius: 0.25rem;
 	font-size: 0.75rem;
 	font-weight: 600;
+}
+
+/* Loading state for buttons */
+.btn-modern {
+	&.preloader {
+		pointer-events: none;
+		position: relative;
+		color: transparent !important;
+
+		&::after {
+			content: '';
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			width: 1rem;
+			height: 1rem;
+			border: 2px solid transparent;
+			border-top: 2px solid currentColor;
+			border-radius: 50%;
+			animation: spin 1s linear infinite;
+		}
+	}
+}
+
+@keyframes spin {
+	0% { transform: translate(-50%, -50%) rotate(0deg); }
+	100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
 /* Responsive Design */
