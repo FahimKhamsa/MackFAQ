@@ -252,4 +252,87 @@ export class OpenaiKnowledgeController {
       );
     }
   }
+
+  /**
+   * Train all uploaded files for a project
+   */
+  @Post('train/:projectId')
+  async trainFiles(@Param('projectId') projectId: string) {
+    console.log(
+      '[OpenaiKnowledgeController - trainFiles] Training files for project:',
+      projectId,
+    );
+    try {
+      const result = await this.openaiKnowledgeService.trainUploadedFiles(
+        parseInt(projectId),
+      );
+
+      console.log(
+        '[OpenaiKnowledgeController - trainFiles] Training Result:',
+        result,
+      );
+
+      return {
+        success: result.success,
+        message: result.message,
+        trainedCount: result.trainedCount,
+        failedCount: result.failedCount,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to train files',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Retry training failed files for a project
+   */
+  @Post('retry-train/:projectId')
+  async retryTrainFiles(@Param('projectId') projectId: string) {
+    try {
+      const result = await this.openaiKnowledgeService.retryFailedFiles(
+        parseInt(projectId),
+      );
+
+      return {
+        success: result.success,
+        message: result.message,
+        trainedCount: result.trainedCount,
+        failedCount: result.failedCount,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to retry training files',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get files by status for a project
+   */
+  @Get('files/:projectId/status/:status')
+  async getFilesByStatus(
+    @Param('projectId') projectId: string,
+    @Param('status') status: string,
+  ) {
+    try {
+      const files = await this.openaiKnowledgeService.getFilesByStatus(
+        parseInt(projectId),
+        status,
+      );
+
+      return {
+        success: true,
+        files: files,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to get files by status',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }

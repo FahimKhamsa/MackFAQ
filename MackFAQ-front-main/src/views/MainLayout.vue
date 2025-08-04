@@ -4,10 +4,10 @@
     <header class="top-header">
       <div class="header-content">
         <div class="header-left">
-          <h1 class="app-title">MackFAQ</h1>
+          <h1 class="app-title">Private AI</h1>
           <span class="app-subtitle">AI-Powered Document Assistant</span>
         </div>
-        
+
         <div class="header-right">
           <Nav :hideTrain="hideTrain" />
         </div>
@@ -173,12 +173,12 @@ export default {
 @media (max-width: 768px) {
   .top-header .header-content {
     padding: 1rem;
-    
+
     .header-left {
       .app-title {
         font-size: 1.25rem;
       }
-      
+
       .app-subtitle {
         font-size: 0.75rem;
       }
@@ -189,7 +189,7 @@ export default {
 @media (max-width: 640px) {
   .top-header .header-content {
     gap: 0.75rem;
-    
+
     .header-left {
       .app-subtitle {
         display: none;
@@ -200,11 +200,10 @@ export default {
 </style>
 
 <style lang="scss">
-
-  .project-link {
-    overflow: hidden!important;
-    max-width: 85%;
-  }
+.project-link {
+  overflow: hidden !important;
+  max-width: 85%;
+}
 
 @media only screen and (max-width: 600px) {
 
@@ -215,6 +214,7 @@ export default {
   .page-train {
     table {
       overflow: scroll;
+
       td {
         padding: 5px;
       }
@@ -224,5 +224,4 @@ export default {
     padding-right: 10px;
   }
 }
-
 </style>

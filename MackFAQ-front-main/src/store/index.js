@@ -471,6 +471,82 @@ export default createStore({
         console.error('Failed to download file:', error);
         throw error;
       }
+    },
+
+    // OpenAI Knowledge Actions
+    async loadOpenAIKnowledgeFiles(context, { projectId }) {
+      try {
+        const response = await axiosConfigured.get(API_URL + `/openai-knowledge/files/${projectId}`);
+        return response.data.files || [];
+      } catch (error) {
+        console.error('Failed to load OpenAI Knowledge files:', error);
+        return [];
+      }
+    },
+
+    async uploadToOpenAIKnowledge(context, { file, projectId }) {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        console.log('Uploading file to OpenAI Knowledge:', file.name, 'for project:', projectId);
+
+        const response = await axiosConfigured.post(API_URL + `/openai-knowledge/upload/${projectId}`, formData);
+
+        console.log('OpenAI Knowledge upload response:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Failed to upload to OpenAI Knowledge:', error);
+        throw error;
+      }
+    },
+
+    async trainOpenAIFiles(context, { projectId }) {
+      try {
+        console.log('Training OpenAI files for project:', projectId);
+
+        const response = await axiosConfigured.post(API_URL + `/openai-knowledge/train/${projectId}`);
+
+        console.log('OpenAI training response:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Failed to train OpenAI files:', error);
+        throw error;
+      }
+    },
+
+    async retryFailedOpenAIFiles(context, { projectId }) {
+      try {
+        console.log('Retrying failed OpenAI files for project:', projectId);
+
+        const response = await axiosConfigured.post(API_URL + `/openai-knowledge/retry-train/${projectId}`);
+
+        console.log('OpenAI retry response:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Failed to retry OpenAI files:', error);
+        throw error;
+      }
+    },
+
+    async getOpenAIFilesByStatus(context, { projectId, status }) {
+      try {
+        const response = await axiosConfigured.get(API_URL + `/openai-knowledge/files/${projectId}/status/${status}`);
+        return response.data.files || [];
+      } catch (error) {
+        console.error('Failed to get OpenAI files by status:', error);
+        return [];
+      }
+    },
+
+    async deleteOpenAIFile(context, { projectId, fileId }) {
+      try {
+        const response = await axiosConfigured.delete(API_URL + `/openai-knowledge/file/${projectId}/${fileId}`);
+        return response.data;
+      } catch (error) {
+        console.error('Failed to delete OpenAI file:', error);
+        throw error;
+      }
     }
   },
   modules: {

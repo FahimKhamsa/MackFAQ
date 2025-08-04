@@ -60,34 +60,38 @@
 			<!-- File Management Section -->
 			<div class="card">
 				<div class="card-header">
-					<h3>Project Files</h3>
-					<span class="file-count-badge">{{ projectFiles.length }} files</span>
+					<div class="header-left">
+						<h3>Project Files</h3>
+						<span class="file-count-badge">{{ projectFiles.length }} files</span>
+					</div>
+					<div class="header-actions">
+						<button @click="trainAI" class="btn-modern btn-success" :class="{ 'preloader': isTraining }"
+							:disabled="isTraining || uploadedFilesCount === 0">
+							<i class="fas fa-brain"></i>
+							Train AI
+							<span v-if="uploadedFilesCount > 0" class="badge">{{ uploadedFilesCount }}</span>
+						</button>
+						<button @click="retryTraining" class="btn-modern btn-warning" :class="{ 'preloader': isRetrying }"
+							:disabled="isRetrying || failedFilesCount === 0">
+							<i class="fas fa-redo"></i>
+							Retry Train
+							<span v-if="failedFilesCount > 0" class="badge">{{ failedFilesCount }}</span>
+						</button>
+					</div>
 				</div>
 
 				<div class="card-body">
 					<!-- Drag & Drop Upload Area -->
-					<div
-						class="upload-zone"
-						:class="{ 'drag-over': isDragOver }"
-						@drop="handleFileDrop"
-						@dragover.prevent="isDragOver = true"
-						@dragleave="isDragOver = false"
-						@click="triggerFileInput"
-					>
+					<div class="upload-zone" :class="{ 'drag-over': isDragOver }" @drop="handleFileDrop"
+						@dragover.prevent="isDragOver = true" @dragleave="isDragOver = false" @click="triggerFileInput">
 						<div class="upload-content">
 							<div class="upload-icon">
 								<i class="fas fa-cloud-upload-alt"></i>
 							</div>
 							<h4>Drop files here or click to browse</h4>
 							<p>Supports: PDF, XLS, XLSX, TXT, JPG, PNG, GIF</p>
-							<input
-								ref="fileInput"
-								type="file"
-								multiple
-								@change="handleFileSelect"
-								accept=".pdf,.xls,.xlsx,.txt,.jpg,.png,.gif"
-								class="file-input"
-							/>
+							<input ref="fileInput" type="file" multiple @change="handleFileSelect"
+								accept=".pdf,.xls,.xlsx,.txt,.jpg,.png,.gif" class="file-input" />
 							<button class="btn-modern btn-secondary">
 								Choose Files
 							</button>
@@ -96,19 +100,24 @@
 
 					<!-- Files Grid -->
 					<div class="files-grid" v-if="projectFiles.length">
-						<div
-							v-for="file in projectFiles"
-							:key="file.id"
-							class="file-card"
-						>
-							<div
-								class="file-icon"
-								:class="getFileIconClass(file.file_type)"
-							>
+						<div v-for="file in projectFiles" :key="file.id" class="file-card">
+							<button @click="deleteFile(file)" class="file-delete-btn" title="Delete file">
+								<i class="fas fa-times"></i>
+							</button>
+							<div class="file-icon" :class="getFileIconClass(file.file_type)">
 								<i :class="getFileIcon(file.file_type)"></i>
 							</div>
 							<div class="file-info">
-								<h4 class="file-name">{{ file.original_name }}</h4>
+								<div class="file-header">
+									<h4 class="file-name">{{ file.original_name }}</h4>
+									<span class="file-status-badge" :class="getStatusBadgeClass(file.status)">
+										<i v-if="file.status === 'processing'" class="fas fa-spinner fa-spin"></i>
+										<i v-else-if="file.status === 'completed'" class="fas fa-check"></i>
+										<i v-else-if="file.status === 'failed'" class="fas fa-times"></i>
+										<i v-else-if="file.status === 'uploaded'" class="fas fa-clock"></i>
+										{{ getStatusText(file.status) }}
+									</span>
+								</div>
 								<div class="file-meta">
 									<span class="file-type">{{
 										file.file_type.toUpperCase()
@@ -122,17 +131,8 @@
 								</div>
 							</div>
 							<div class="file-actions">
-								<button
-									@click="downloadFile(file)"
-									class="btn-modern btn-icon"
-								>
+								<button @click="downloadFile(file)" class="btn-modern btn-icon">
 									<i class="fas fa-download"></i>
-								</button>
-								<button
-									@click="deleteFile(file)"
-									class="btn-modern btn-icon btn-danger"
-								>
-									<i class="fas fa-trash"></i>
 								</button>
 							</div>
 						</div>
@@ -162,11 +162,7 @@
 						<!-- Model Selection -->
 						<div class="form-group">
 							<label class="form-label">AI Model</label>
-							<select
-								v-model="aiConfig.selectedModel"
-								@change="updateAIConfig"
-								class="form-select"
-							>
+							<select v-model="aiConfig.selectedModel" @change="updateAIConfig" class="form-select">
 								<optgroup label="OpenAI">
 									<option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
 									<option value="gpt-4">GPT-4</option>
@@ -183,11 +179,7 @@
 						<!-- API Provider -->
 						<div class="form-group">
 							<label class="form-label">API Provider</label>
-							<select
-								v-model="aiConfig.apiProvider"
-								@change="updateAIConfig"
-								class="form-select"
-							>
+							<select v-model="aiConfig.apiProvider" @change="updateAIConfig" class="form-select">
 								<option value="openai">OpenAI</option>
 								<option value="openrouter">OpenRouter</option>
 							</select>
@@ -197,40 +189,24 @@
 						<div class="form-group">
 							<div class="form-label-row">
 								<label class="form-label">System Prompt</label>
-								<button
-									@click="togglePromptLock"
-									:class="[
-										'btn-modern',
-										'btn-sm',
-										aiConfig.promptLocked ? 'btn-danger' : 'btn-success',
-									]"
-								>
-									<i
-										:class="
-											aiConfig.promptLocked ? 'fas fa-lock' : 'fas fa-unlock'
-										"
-									></i>
+								<button @click="togglePromptLock" :class="[
+									'btn-modern',
+									'btn-sm',
+									aiConfig.promptLocked ? 'btn-danger' : 'btn-success',
+								]">
+									<i :class="aiConfig.promptLocked ? 'fas fa-lock' : 'fas fa-unlock'
+										"></i>
 									{{ aiConfig.promptLocked ? "Unlock" : "Lock" }}
 								</button>
 							</div>
-							<textarea
-								v-model="aiConfig.systemPrompt"
-								:disabled="aiConfig.promptLocked"
-								@blur="updateAIConfig"
-								class="form-textarea"
-								rows="4"
-								placeholder="Enter your custom AI system prompt..."
-							></textarea>
+							<textarea v-model="aiConfig.systemPrompt" :disabled="aiConfig.promptLocked" @blur="updateAIConfig"
+								class="form-textarea" rows="4" placeholder="Enter your custom AI system prompt..."></textarea>
 						</div>
 
 						<!-- SOP Integration -->
 						<div class="form-group">
 							<label class="checkbox-label">
-								<input
-									type="checkbox"
-									v-model="aiConfig.includeSOP"
-									@change="updateAIConfig"
-								/>
+								<input type="checkbox" v-model="aiConfig.includeSOP" @change="updateAIConfig" />
 								<span class="checkbox-text">
 									Include SOP Library
 									<small>
@@ -277,6 +253,9 @@ export default {
 			projectFiles: [],
 			isDragOver: false,
 			isLoading: true,
+			isTraining: false,
+			isRetrying: false,
+			pollingInterval: null,
 			aiConfig: {
 				selectedModel: "gpt-3.5-turbo",
 				apiProvider: "openai",
@@ -286,6 +265,25 @@ export default {
 				includeSOP: true,
 			},
 		};
+	},
+	computed: {
+		uploadedFilesCount() {
+			return this.projectFiles.filter(file => file.status === 'uploaded').length;
+		},
+		failedFilesCount() {
+			return this.projectFiles.filter(file => file.status === 'failed').length;
+		},
+		processingFilesCount() {
+			return this.projectFiles.filter(file => file.status === 'processing').length;
+		},
+		completedFilesCount() {
+			return this.projectFiles.filter(file => file.status === 'completed').length;
+		}
+	},
+	beforeUnmount() {
+		if (this.pollingInterval) {
+			clearInterval(this.pollingInterval);
+		}
 	},
 	async mounted() {
 		await this.loadProject();
@@ -299,10 +297,10 @@ export default {
 				// Load projects from store
 				await this.$store.dispatch("updateAvailableProjects");
 				const projects = this.$store.getters.getAvailableProjects;
-				
+
 				// Find the specific project
 				this.project = projects.find(p => p.id == projectId);
-				
+
 				if (this.project) {
 					await this.loadProjectFiles();
 					await this.loadAIConfig();
@@ -319,12 +317,23 @@ export default {
 			if (!this.project) return;
 
 			try {
-				// Load files from store
-				await this.$store.dispatch('myLoadedFiles');
-				const docsConnected = this.$store.getters.getDocsConnectedToProject(this.project.id);
-				this.projectFiles = docsConnected
-					.map((conn) => conn.learning_session)
-					.filter(Boolean);
+				// Load files from OpenAI Knowledge API
+				const files = await this.$store.dispatch('loadOpenAIKnowledgeFiles', {
+					projectId: this.project.id
+				});
+
+				// Map the files to match the expected structure
+				this.projectFiles = files.map(file => ({
+					id: file.id,
+					filename: file.filename,
+					original_name: file.filename,
+					file_type: file.file_type,
+					file_size: file.file_size,
+					status: file.status,
+					openai_file_id: file.openai_file_id,
+					createdAt: file.createdAt,
+					updatedAt: file.updatedAt
+				}));
 			} catch (error) {
 				console.error("Failed to load project files:", error);
 				this.$toast.error("Failed to load project files");
@@ -382,67 +391,36 @@ export default {
 			}
 
 			for (const file of files) {
-				const formData = new FormData();
-				// Only append the file - the backend expects just the 'file' field
-				formData.append("file", file);
-
 				try {
 					this.$toast.info(`Uploading ${file.name}...`);
-					
-					// Ensure user is authenticated before making the request
-					await this.$store.dispatch('loadMe');
-					
-					// Debug logging
-					const token = localStorage.getItem('t');
-					console.log('Upload request details:', {
-						bot_id: parseInt(process.env.VUE_APP_API_BOT_ID),
-						project_id: this.project.id,
-						project_bot_id: this.project.bot_id,
-						file_name: file.name,
-						file_size: file.size,
-						file_type: file.type,
-						has_token: !!token,
-						token_preview: token ? token.substring(0, 20) + '...' : 'none',
-						project_object: this.project
-					});
-					
-					// Validate project belongs to bot before upload
-					if (this.project.bot_id !== parseInt(process.env.VUE_APP_API_BOT_ID)) {
-						this.$toast.error(`Project belongs to bot ${this.project.bot_id}, but trying to upload with bot ${process.env.VUE_APP_API_BOT_ID}`);
-						continue;
-					}
-					console.log('Project ID:', this.project.id);
-					
-					// Use store action for file upload
-					const response = await this.$store.dispatch('uploadFile', {
+
+					// Use OpenAI Knowledge upload
+					const response = await this.$store.dispatch('uploadToOpenAIKnowledge', {
 						file: file,
 						projectId: this.project.id
 					});
-					
-					console.log('Upload response:', response);
+
+					console.log('OpenAI Knowledge upload response:', response);
 					this.$toast.success(`${file.name} uploaded successfully`);
 				} catch (error) {
 					console.error("File upload failed:", error);
-					console.error("Full error object:", error);
-					console.error("Error response:", error.response);
-					console.error("Error response data:", error.response?.data);
-					console.error("Error response status:", error.response?.status);
-					console.error("Error response headers:", error.response?.headers);
-					
+
 					if (error.response?.status === 401) {
 						this.$toast.error("Authentication required. Please log in again.");
 						this.$router.push({ name: 'Login' });
 					} else {
-						const errorMessage = error.response?.data?.message || 
-											error.response?.data?.error || 
-											error.response?.statusText || 
-											error.message;
+						const errorMessage = error.response?.data?.message ||
+							error.response?.data?.error ||
+							error.response?.statusText ||
+							error.message;
 						this.$toast.error(`Failed to upload ${file.name}: ${errorMessage}`);
 					}
 				}
 			}
 
+			// Refresh files list and start polling for real-time updates
 			await this.loadProjectFiles();
+			this.startStatusPolling();
 		},
 
 		detectFileCategory(filename) {
@@ -515,19 +493,6 @@ export default {
 			this.updateAIConfig();
 		},
 
-		async deleteFile(file) {
-			if (confirm(`Are you sure you want to delete "${file.original_name}"?`)) {
-				try {
-					await axios.delete(`/api/saved-knowledge-qoidoqe2koakjfoqwe?id=${file.id}`);
-					this.$toast.success("File deleted successfully");
-					await this.loadProjectFiles();
-					await this.$store.dispatch('myLoadedFiles');
-				} catch (error) {
-					console.error("Failed to delete file:", error);
-					this.$toast.error("Failed to delete file");
-				}
-			}
-		},
 
 		async trainAI() {
 			if (!this.project) {
@@ -535,42 +500,139 @@ export default {
 				return;
 			}
 
-			// Check if there are pending files
-			const pendingFiles = await this.$store.dispatch('getPendingFiles', {
-				projectId: this.project.id
-			});
-
-			if (pendingFiles.length === 0) {
-				this.$toast.info("No pending files to train. Upload some files first.");
+			if (this.uploadedFilesCount === 0) {
+				this.$toast.info("No uploaded files to train. Upload some files first.");
 				return;
 			}
 
-			if (!window.confirm(`Train AI with ${pendingFiles.length} pending file(s)?`)) {
+			if (!window.confirm(`Train AI with ${this.uploadedFilesCount} uploaded file(s)?`)) {
 				return;
 			}
 
-			this.$refs.trainButton.classList.add("preloader");
-			
+			this.isTraining = true;
+			this.startStatusPolling();
+
 			try {
-				const result = await this.$store.dispatch('trainFiles', {
+				const result = await this.$store.dispatch('trainOpenAIFiles', {
 					projectId: this.project.id
 				});
 
-				this.$toast.success(`Training completed: ${result.data.trainedCount} files trained successfully`);
-				
-				if (result.data.failedCount > 0) {
-					this.$toast.error(`${result.data.failedCount} files failed to train`);
+				this.$toast.success(`Training completed: ${result.trainedCount} files trained successfully`);
+
+				if (result.failedCount > 0) {
+					this.$toast.error(`${result.failedCount} files failed to train`);
 				}
-				
+
 				// Refresh the files list
 				await this.loadProjectFiles();
-				
+
 			} catch (error) {
 				console.error('Training failed:', error);
 				this.$toast.error(`Failed to train files: ${error.message}`);
+			} finally {
+				this.isTraining = false;
+				this.stopStatusPolling();
+			}
+		},
+
+		async retryTraining() {
+			if (!this.project) {
+				this.$toast.error("Project not loaded");
+				return;
 			}
 
-			this.$refs.trainButton.classList.remove("preloader");
+			if (this.failedFilesCount === 0) {
+				this.$toast.info("No failed files to retry.");
+				return;
+			}
+
+			if (!window.confirm(`Retry training ${this.failedFilesCount} failed file(s)?`)) {
+				return;
+			}
+
+			this.isRetrying = true;
+			this.startStatusPolling();
+
+			try {
+				const result = await this.$store.dispatch('retryFailedOpenAIFiles', {
+					projectId: this.project.id
+				});
+
+				this.$toast.success(`Retry completed: ${result.trainedCount} files trained successfully`);
+
+				if (result.failedCount > 0) {
+					this.$toast.warning(`${result.failedCount} files still failed`);
+				}
+
+				// Refresh the files list
+				await this.loadProjectFiles();
+
+			} catch (error) {
+				console.error('Retry training failed:', error);
+				this.$toast.error(`Failed to retry training: ${error.message}`);
+			} finally {
+				this.isRetrying = false;
+				this.stopStatusPolling();
+			}
+		},
+
+		startStatusPolling() {
+			if (this.pollingInterval) {
+				clearInterval(this.pollingInterval);
+			}
+
+			// Poll every 2 seconds for status updates
+			this.pollingInterval = setInterval(async () => {
+				if (this.isTraining || this.isRetrying || this.processingFilesCount > 0) {
+					await this.loadProjectFiles();
+				} else {
+					// Stop polling if no files are processing
+					this.stopStatusPolling();
+				}
+			}, 2000);
+		},
+
+		stopStatusPolling() {
+			if (this.pollingInterval) {
+				clearInterval(this.pollingInterval);
+				this.pollingInterval = null;
+			}
+		},
+
+		getStatusText(status) {
+			const statusMap = {
+				'uploaded': 'Uploaded',
+				'processing': 'Processing',
+				'completed': 'Completed',
+				'failed': 'Failed'
+			};
+			return statusMap[status] || 'Unknown';
+		},
+
+		getStatusBadgeClass(status) {
+			const classMap = {
+				'uploaded': 'status-uploaded',
+				'processing': 'status-processing',
+				'completed': 'status-completed',
+				'failed': 'status-failed'
+			};
+			return classMap[status] || 'status-unknown';
+		},
+
+		async deleteFile(file) {
+			if (confirm(`Are you sure you want to delete "${file.original_name}"?`)) {
+				try {
+					await this.$store.dispatch('deleteOpenAIFile', {
+						projectId: this.project.id,
+						fileId: file.openai_file_id
+					});
+					this.$toast.success("File deleted successfully");
+					await this.loadProjectFiles();
+				} catch (error) {
+					console.error("Failed to delete file:", error);
+					this.$toast.error("Failed to delete file");
+				}
+			}
 		},
 
 		async downloadFile(file) {
@@ -839,10 +901,48 @@ export default {
 		align-items: center;
 		gap: 1rem;
 		transition: all 0.15s ease-in-out;
+		position: relative;
 
 		&:hover {
 			border-color: var(--primary-blue);
 			box-shadow: 0 1px 3px 0 rgba(37, 99, 235, 0.1);
+
+			.file-delete-btn {
+				opacity: 1;
+			}
+		}
+
+		.file-delete-btn {
+			position: absolute;
+			top: 0.5rem;
+			right: 0.5rem;
+			width: 1.5rem;
+			height: 1.5rem;
+			border: none;
+			background-color: rgba(239, 68, 68, 0.9);
+			color: white;
+			border-radius: 50%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
+			opacity: 0;
+			transition: all 0.2s ease;
+			font-size: 0.75rem;
+			z-index: 10;
+
+			&:hover {
+				background-color: #dc2626;
+				transform: scale(1.1);
+			}
+
+			&:active {
+				transform: scale(0.95);
+			}
+
+			i {
+				font-size: 0.625rem;
+			}
 		}
 
 		.file-icon {
@@ -858,14 +958,17 @@ export default {
 				color: var(--file-pdf);
 				background-color: rgba(220, 38, 38, 0.1);
 			}
+
 			&.file-excel {
 				color: var(--file-excel);
 				background-color: rgba(22, 163, 74, 0.1);
 			}
+
 			&.file-text {
 				color: var(--file-text);
 				background-color: rgba(37, 99, 235, 0.1);
 			}
+
 			&.file-image {
 				color: var(--file-image);
 				background-color: rgba(124, 58, 237, 0.1);
@@ -876,8 +979,16 @@ export default {
 			flex: 1;
 			min-width: 0;
 
+			.file-header {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				margin-bottom: 0.25rem;
+				gap: 0.5rem;
+			}
+
 			.file-name {
-				margin: 0 0 0.25rem 0;
+				margin: 0;
 				font-size: 0.875rem;
 				font-weight: 600;
 				color: var(--gray-900);
@@ -885,6 +996,42 @@ export default {
 				overflow: hidden;
 				text-overflow: ellipsis;
 				white-space: nowrap;
+				flex: 1;
+			}
+
+			.file-status-badge {
+				display: flex;
+				align-items: center;
+				gap: 0.25rem;
+				padding: 0.125rem 0.5rem;
+				border-radius: 0.25rem;
+				font-size: 0.75rem;
+				font-weight: 500;
+				white-space: nowrap;
+
+				&.status-uploaded {
+					background-color: rgba(59, 130, 246, 0.1);
+					color: #1d4ed8;
+				}
+
+				&.status-processing {
+					background-color: rgba(245, 158, 11, 0.1);
+					color: #d97706;
+				}
+
+				&.status-completed {
+					background-color: rgba(34, 197, 94, 0.1);
+					color: #16a34a;
+				}
+
+				&.status-failed {
+					background-color: rgba(239, 68, 68, 0.1);
+					color: #dc2626;
+				}
+
+				i {
+					font-size: 0.75rem;
+				}
 			}
 
 			.file-meta {
@@ -905,6 +1052,51 @@ export default {
 		.file-actions {
 			display: flex;
 			gap: 0.25rem;
+		}
+	}
+}
+
+.card-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 1.5rem;
+	border-bottom: 1px solid var(--gray-200);
+
+	.header-left {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+
+		h3 {
+			margin: 0;
+			font-size: 1.125rem;
+			font-weight: 600;
+			color: var(--gray-900);
+		}
+	}
+
+	.header-actions {
+		display: flex;
+		gap: 0.75rem;
+
+		.btn-modern {
+			position: relative;
+
+			.badge {
+				position: absolute;
+				top: -0.25rem;
+				right: -0.25rem;
+				background-color: rgba(255, 255, 255, 0.9);
+				color: inherit;
+				font-size: 0.625rem;
+				font-weight: 600;
+				padding: 0.125rem 0.375rem;
+				border-radius: 0.75rem;
+				min-width: 1.25rem;
+				text-align: center;
+				border: 1px solid currentColor;
+			}
 		}
 	}
 }
@@ -942,8 +1134,13 @@ export default {
 }
 
 @keyframes spin {
-	0% { transform: translate(-50%, -50%) rotate(0deg); }
-	100% { transform: translate(-50%, -50%) rotate(360deg); }
+	0% {
+		transform: translate(-50%, -50%) rotate(0deg);
+	}
+
+	100% {
+		transform: translate(-50%, -50%) rotate(360deg);
+	}
 }
 
 /* Responsive Design */

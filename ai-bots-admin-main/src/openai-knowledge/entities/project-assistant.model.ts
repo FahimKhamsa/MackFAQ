@@ -39,6 +39,12 @@ export class ProjectAssistantModel extends Model<ProjectAssistantModel> {
     type: DataType.STRING(255),
     allowNull: true,
   })
+  vector_store_id: string;
+
+  @Column({
+    type: DataType.STRING(255),
+    allowNull: true,
+  })
   name: string;
 
   @Column({

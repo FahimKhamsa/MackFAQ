@@ -54,7 +54,7 @@ export class ProjectFileModel extends Model<ProjectFileModel> {
   file_size: number;
 
   @Column({
-    type: DataType.STRING(50),
+    type: DataType.ENUM('uploaded', 'processing', 'completed', 'failed'),
     defaultValue: 'uploaded',
   })
   status: string; // uploaded, processing, completed, failed

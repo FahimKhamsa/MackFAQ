@@ -9,6 +9,7 @@ import { RasaapiModule } from 'src/rasaapi/rasaapi.module';
 import { LocalIntentsResponsesStorageModule } from 'src/local-intents-responses-storage/local-intents-responses-storage.module';
 import { LargeFilesProcessingModule } from 'src/large-files-processing/large-files-processing.module';
 import { HttpModule } from '@nestjs/axios';
+import { OpenaiKnowledgeModule } from 'src/openai-knowledge/openai-knowledge.module';
 
 @Module({
   providers: [ApiService],
@@ -16,9 +17,6 @@ import { HttpModule } from '@nestjs/axios';
   imports: [
     GptapiModule.config({
       paramsFactory: async (configService: ConfigService) => {
-        const key = configService.get('OPEN_AI_API_KEY');
-        console.log('[DEBUG] Loaded OPEN_AI_API_KEY:', key); // 👈
-
         return {
           api_key: configService.get('OPEN_AI_API_KEY'),
         };
@@ -28,9 +26,6 @@ import { HttpModule } from '@nestjs/axios';
     }),
     LargeFilesProcessingModule.config({
       paramsFactory: async (configService: ConfigService) => {
-        const key = configService.get('OPEN_AI_API_KEY');
-        console.log('[DEBUG] Loaded OPEN_AI_API_KEY:', key); // 👈
-
         return {
           PINECONE_INDEX_NAME: configService.get(
             'LARGE_FILES_PROCESSING_SERVICE_PINECONE_INDEX_NAME',
@@ -51,6 +46,7 @@ import { HttpModule } from '@nestjs/axios';
     MessagesModule,
     RasaapiModule,
     LocalIntentsResponsesStorageModule,
+    OpenaiKnowledgeModule,
   ],
 })
 export class ApiModule {}

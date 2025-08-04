@@ -32,6 +32,7 @@ import {
 import { AuthedWithBot } from 'src/authed-with-bot.decorator';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { ProjecLink } from 'src/project-link.decorator';
+import { OpenaiKnowledgeService } from 'src/openai-knowledge/openai-knowledge.service';
 
 @Controller('api')
 @UseInterceptors(AuthedWithBot)
@@ -39,28 +40,58 @@ export class ApiController {
   constructor(
     private apiService: ApiService,
     private botService: BotsService,
+    private openaiKnowledgeService: OpenaiKnowledgeService,
   ) {}
 
   @UseInterceptors(ProjecLink)
   @Get('complete')
   public async getComplete(@Query() query: IGetCompleteDTO) {
     console.log(query);
+
+    // Feature flag for OpenAI Knowledge Retrieval
+    const useOpenAIKnowledge = process.env.USE_OPENAI_KNOWLEDGE === 'true';
+
+    // Try OpenAI Knowledge Retrieval first if enabled and project_id is provided
+    if (useOpenAIKnowledge && query.project_id) {
+      try {
+        console.log(
+          '[OpenAI Knowledge] Attempting to use knowledge retrieval for project:',
+          query.project_id,
+        );
+
+        const knowledgeResult = await this.openaiKnowledgeService.askQuestion(
+          parseInt(query.project_id.toString()),
+          query.prompt,
+          query.conversationId, // Use as threadId
+          undefined, // userId - can be added later
+          undefined, // sessionId - can be added later
+        );
+
+        console.log(
+          '[OpenAI Knowledge] Success! Got response from knowledge base',
+        );
+
+        return {
+          data: {
+            answer: knowledgeResult.answer,
+            conversationId: knowledgeResult.threadId, // Return threadId as conversationId for frontend compatibility
+            sources: [], // Can be enhanced later with file source tracking
+            sopReferences: [], // Keep existing SOP logic if needed
+            usedKnowledgeBase: true, // Flag to indicate source
+          },
+        };
+      } catch (error) {
+        console.log(
+          '[OpenAI Knowledge] Failed, falling back to existing system:',
+          error.message,
+        );
+        // Continue to fallback system below
+      }
+    }
+
+    // Fallback to existing system
+    console.log('[Fallback] Using existing RAG system');
     return {
-      // data: await this.apiService.deepFaq(
-      //   query.prompt,
-      //   query.conversationId,
-      //   {
-      //     project_id: query.project_id,
-      //     bot_id: query.bot_id,
-      //     currentUserId: 0,
-      //     forcePromptPrefix: query.promptPrefix || null,
-      //   },
-      //   query.conversationName,
-      //   null,
-      //   query.createdAt,
-      //   query.forceDisableDocsData,
-      //   query.filesToUse,
-      // ),
       data: await this.apiService.getAnswer(
         query.prompt,
         query.conversationId,
@@ -283,6 +314,50 @@ export class ApiController {
       throw new HttpException('Input file is required', HttpStatus.BAD_REQUEST);
     }
 
+    // Feature flag for OpenAI Knowledge Retrieval
+    const useOpenAIKnowledge = process.env.USE_OPENAI_KNOWLEDGE === 'true';
+
+    // Try OpenAI Knowledge Retrieval first if enabled and project_id is provided
+    if (useOpenAIKnowledge && project_id) {
+      try {
+        console.log(
+          '[OpenAI Knowledge] Uploading file to knowledge base for project:',
+          project_id,
+        );
+
+        const openaiResult =
+          await this.openaiKnowledgeService.uploadFileForRetrieval(
+            project_id,
+            file.buffer,
+            file.originalname,
+          );
+
+        console.log(
+          '[OpenAI Knowledge] File uploaded successfully to knowledge base',
+        );
+
+        return {
+          status: true,
+          data: {
+            id: openaiResult.dbFileId,
+            file_name: file.originalname,
+            openai_file_id: openaiResult.fileId,
+            createdAt: new Date().toISOString(),
+          },
+          message:
+            'File uploaded to OpenAI Knowledge Base successfully. Ready for queries!',
+        };
+      } catch (error) {
+        console.log(
+          '[OpenAI Knowledge] File upload failed, falling back to existing system:',
+          error.message,
+        );
+        // Continue to fallback system below
+      }
+    }
+
+    // Fallback to existing system
+    console.log('[Fallback] Using existing file upload system');
     const uploadedFile = await this.apiService.uploadFileOnly(
       {
         content: file.buffer,
@@ -310,6 +385,50 @@ export class ApiController {
       throw new HttpException('Project ID is required', HttpStatus.BAD_REQUEST);
     }
 
+    // Feature flag for OpenAI Knowledge Retrieval
+    const useOpenAIKnowledge = process.env.USE_OPENAI_KNOWLEDGE === 'true';
+
+    // Try OpenAI Knowledge Retrieval first if enabled
+    if (useOpenAIKnowledge) {
+      try {
+        console.log(
+          '[OpenAI Knowledge] Initializing assistant for project:',
+          project_id,
+        );
+
+        // Initialize or get existing assistant for the project
+        const assistant =
+          await this.openaiKnowledgeService.createOrGetAssistant(
+            project_id,
+            'You are a helpful AI assistant for this project. Use the uploaded documents to provide accurate, contextual answers to user questions. If you cannot find relevant information in the uploaded files, clearly state that the information is not available in the knowledge base.',
+          );
+
+        console.log(
+          '[OpenAI Knowledge] Assistant ready for project:',
+          project_id,
+        );
+
+        return {
+          status: true,
+          data: {
+            message:
+              'OpenAI Knowledge Base is ready! Files are automatically processed when uploaded.',
+            assistantId: assistant.assistantId,
+            trainedCount: 0, // OpenAI handles training automatically
+            failedCount: 0,
+          },
+        };
+      } catch (error) {
+        console.log(
+          '[OpenAI Knowledge] Assistant initialization failed, falling back to existing system:',
+          error.message,
+        );
+        // Continue to fallback system below
+      }
+    }
+
+    // Fallback to existing system
+    console.log('[Fallback] Using existing training system');
     const result = await this.apiService.trainPendingFiles({
       bot_id,
       project_id,

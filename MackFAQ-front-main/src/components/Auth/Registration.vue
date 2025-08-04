@@ -1,6 +1,6 @@
 <template>
     <div>
-        <h3>Sign Up / Log In to SuperTech</h3>
+        <h3>Sign Up / Log In to Private AI</h3>
         <form @submit.prevent="registration">
             <div class="field">
                 <input type="text" placeholder="Email" id="email" v-model.trim="form.email">
@@ -9,11 +9,12 @@
                 <input type="password" placeholder="Password" id="password" v-model="form.password">
             </div>
             <div class="field">
-                <input type="password" placeholder="Confirm password" id="confirm_password" v-model="form.confirm_password">
+                <input type="password" placeholder="Confirm password" id="confirm_password"
+                    v-model="form.confirm_password">
             </div>
             <button :disabled="formDisabled" type="submit">Sign Up</button>
         </form>
-        <router-link :to="{name: 'Login'}">Sign In</router-link>
+        <router-link :to="{ name: 'Login' }">Sign In</router-link>
     </div>
 </template>
 
@@ -49,7 +50,7 @@ export default {
             this.$store.dispatch('register', this.form)
                 .then(() => {
                     this.$toast.success("Welcome");
-                    this.$router.push({name: 'home'})
+                    this.$router.push({ name: 'home' })
                 })
                 .catch(e => {
                     this.formDisabled = false;
