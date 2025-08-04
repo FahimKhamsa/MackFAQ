@@ -396,7 +396,7 @@ export class LocalIntentsResponsesStorageService {
     }[] = [];
 
     const bot_id = config.bot_id || null;
-    let project_id = config.project_id || null;
+    const project_id = config.project_id || null;
 
     const prompts = await this.intentModel.findAll({
       where: {
@@ -916,8 +916,8 @@ export class LocalIntentsResponsesStorageService {
       const variants = [];
 
       for (const keyLongForm in contractionsDict) {
-        let longFormsToReplace = keyLongForm.split('|');
-        let replacements = contractionsDict[keyLongForm]
+        const longFormsToReplace = keyLongForm.split('|');
+        const replacements = contractionsDict[keyLongForm]
           .toLowerCase()
           .split('|');
 
@@ -993,7 +993,7 @@ export class LocalIntentsResponsesStorageService {
 
   public async addIntentOrUpdate(intentTexts: string[], config: IConfig) {
     const examples: IntentExampleModel[] = [];
-    let oldIntentsId: number[] = [];
+    const oldIntentsId: number[] = [];
     const intentTextsProcessed = intentTexts.map((text) => [
       text,
       this.replaceApostrophesWithLongForms(this.processIntent(text, true, true))

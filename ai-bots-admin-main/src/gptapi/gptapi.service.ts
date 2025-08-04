@@ -14,8 +14,10 @@ export class GptapiService {
   private logger = new Logger(GptapiService.name);
 
   private _requestsQueue: {
-    resolver: Function;
-    rejector: Function;
+    // resolver: Function;
+    // rejector: Function;
+    resolver: (value: unknown) => void;
+    rejector: (reason?: any) => void;
     targetFunction: () => Promise<any>;
     lastRun: number;
     deadLine: number;

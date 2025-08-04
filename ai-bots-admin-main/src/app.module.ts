@@ -11,6 +11,7 @@ import { LocalIntentsResponsesStorageModule } from './local-intents-responses-st
 import { ScheduleModule } from '@nestjs/schedule';
 import { SOPModule } from './sop/sop.module';
 import { AIConfigModule } from './ai-config/ai-config.module';
+import { OpenaiKnowledgeModule } from './openai-knowledge/openai-knowledge.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { AIConfigModule } from './ai-config/ai-config.module';
     ScheduleModule.forRoot(),
     SOPModule,
     AIConfigModule,
+    OpenaiKnowledgeModule,
   ],
 })
 export class AppModule {}

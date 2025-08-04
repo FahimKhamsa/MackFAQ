@@ -117,7 +117,7 @@ export class RasaapiService {
       });
     });
 
-    let objectInput = {
+    const objectInput = {
       language: 'en',
       // "core_target": "select_prediction",
       // recipe: 'default.v1',

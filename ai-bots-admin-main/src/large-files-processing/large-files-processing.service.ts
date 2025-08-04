@@ -642,7 +642,7 @@ export class LargeFilesProcessingService implements OnModuleInit {
     project_id: number;
     learning_session_id: number;
   }) {
-    let conn = await this.learningSessionProjectConnection.findOne({
+    const conn = await this.learningSessionProjectConnection.findOne({
       where: {
         project_id: payload.project_id,
         learning_session_id: payload.learning_session_id,

@@ -5,12 +5,12 @@ import { AIConfigController } from './ai-config.controller';
 import { AIConfiguration } from './entities/ai-configuration.model';
 
 @Module({
-    imports: [],
-    controllers: [AIConfigController],
-    providers: [
-        AIConfigService,
-        {provide: getModelToken(AIConfiguration), useValue: AIConfiguration},
-    ],
-    exports: [AIConfigService],
+  imports: [],
+  controllers: [AIConfigController],
+  providers: [
+    AIConfigService,
+    { provide: getModelToken(AIConfiguration), useValue: AIConfiguration },
+  ],
+  exports: [AIConfigService],
 })
 export class AIConfigModule {}
