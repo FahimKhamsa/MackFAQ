@@ -16,8 +16,6 @@ import {
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
-import { BotsService } from 'src/bots/bots.service';
-import { UpdateBotDTO } from 'src/bots/dto/update.dto';
 import { UserModel } from 'src/users/entities/user.model';
 import { ApiService, MessageTypes } from './api.service';
 import { IClearMemoryDTO } from './dto/clear-memory.dto';
@@ -33,20 +31,23 @@ import { AuthedWithBot } from 'src/authed-with-bot.decorator';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { ProjecLink } from 'src/project-link.decorator';
 import { OpenaiKnowledgeService } from 'src/openai-knowledge/openai-knowledge.service';
+import { BotsService } from 'src/bots/bots.service';
+import { ConversationsService } from 'src/conversations/conversations.service';
 
 @Controller('api')
 @UseInterceptors(AuthedWithBot)
 export class ApiController {
   constructor(
     private apiService: ApiService,
-    private botService: BotsService,
     private openaiKnowledgeService: OpenaiKnowledgeService,
+    private botsService: BotsService,
+    private conversationsService: ConversationsService,
   ) {}
 
   @UseInterceptors(ProjecLink)
   @Get('complete')
   public async getComplete(@Query() query: IGetCompleteDTO) {
-    console.log(query);
+    console.log('Query', query);
 
     // Feature flag for OpenAI Knowledge Retrieval
     const useOpenAIKnowledge = process.env.USE_OPENAI_KNOWLEDGE === 'true';
@@ -60,16 +61,89 @@ export class ApiController {
         );
 
         const knowledgeResult = await this.openaiKnowledgeService.askQuestion(
-          parseInt(query.project_id.toString()),
+          query.project_id,
           query.prompt,
           query.conversationId, // Use as threadId
-          undefined, // userId - can be added later
+          query.userId, // Pass the actual userId from the query
           undefined, // sessionId - can be added later
         );
 
         console.log(
           '[OpenAI Knowledge] Success! Got response from knowledge base',
         );
+
+        // Store conversation and messages in the traditional system
+        try {
+          const isNewConversation = !query.conversationId;
+          const conversationId = knowledgeResult.threadId;
+
+          // Get assistant info for the project
+          const assistant =
+            await this.openaiKnowledgeService.getProjectAssistant(
+              query.project_id,
+            );
+          const assistantId = assistant?.id || null;
+
+          // Prepare messages to store
+          const messagesToStore = [
+            {
+              type: MessageTypes.USER_MESSAGE,
+              message: query.prompt,
+              messageId: `user-${Date.now()}`,
+              createdAt: query.createdAt || new Date().toISOString(),
+            },
+            {
+              type: MessageTypes.AI_MESSAGE,
+              message: knowledgeResult.answer,
+              messageId: knowledgeResult.messageId || `ai-${Date.now()}`,
+              createdAt: new Date().toISOString(),
+            },
+          ];
+
+          if (isNewConversation) {
+            // Create new conversation
+            await this.conversationsService.createConversation(
+              conversationId,
+              messagesToStore,
+              {
+                project_id: query.project_id,
+                user_id: query.userId,
+                assistant_id: assistantId,
+                name:
+                  query.conversationName ||
+                  `Chat ${new Date().toLocaleDateString()}`,
+                messages_slug:
+                  await this.conversationsService.generateConversationMessagesSlug(
+                    messagesToStore,
+                  ),
+              },
+            );
+            console.log(
+              '[OpenAI Knowledge] Created new conversation:',
+              conversationId,
+            );
+          } else {
+            // Append to existing conversation
+            await this.conversationsService.appendToConversation(
+              conversationId,
+              messagesToStore,
+              {
+                project_id: query.project_id,
+                assistant_id: assistantId,
+              },
+            );
+            console.log(
+              '[OpenAI Knowledge] Appended to existing conversation:',
+              conversationId,
+            );
+          }
+        } catch (storageError) {
+          console.error(
+            '[OpenAI Knowledge] Failed to store conversation:',
+            storageError,
+          );
+          // Don't fail the request if storage fails, just log the error
+        }
 
         return {
           data: {
@@ -90,40 +164,40 @@ export class ApiController {
     }
 
     // Fallback to existing system
-    console.log('[Fallback] Using existing RAG system');
-    return {
-      data: await this.apiService.getAnswer(
-        query.prompt,
-        query.conversationId,
-        { ...query, translate_to_language: query.lang || null },
-      ),
-    };
+    // console.log('[Fallback] Using existing RAG system');
+    // return {
+    //   data: await this.apiService.getAnswer(
+    //     query.prompt,
+    //     query.conversationId,
+    //     { ...query, translate_to_language: query.lang || null },
+    //   ),
+    // };
   }
 
-  @Get('recomplete-for-message')
-  public async recomplete(@Query() query: IRecompleteDTO) {
-    return {
-      data: await this.apiService.deepFaq(
-        null,
-        query.conversationId,
-        { project_id: null, bot_id: null, currentUserId: 0 },
-        null,
-        query.messageId,
-      ),
-      // data: await this.apiService.getAnswer(query.prompt, query.conversationId, { ...query, translate_to_language: query.lang || null }),
-    };
-  }
+  // @Get('recomplete-for-message')
+  // public async recomplete(@Query() query: IRecompleteDTO) {
+  //   return {
+  //     data: await this.apiService.deepFaq(
+  //       null,
+  //       query.conversationId,
+  //       { project_id: null, bot_id: null, user_id: null },
+  //       null,
+  //       query.messageId,
+  //     ),
+  //     // data: await this.apiService.getAnswer(query.prompt, query.conversationId, { ...query, translate_to_language: query.lang || null }),
+  //   };
+  // }
 
-  @Get('deep-faq/complete')
-  public async getDeepFaqComplete(@Query() query: IGetCompleteDTO) {
-    return {
-      data: await this.apiService.deepFaq(query.prompt, query.conversationId, {
-        project_id: query.project_id,
-        bot_id: query.bot_id,
-        currentUserId: 0,
-      }),
-    };
-  }
+  // @Get('deep-faq/complete')
+  // public async getDeepFaqComplete(@Query() query: IGetCompleteDTO) {
+  //   return {
+  //     data: await this.apiService.deepFaq(query.prompt, query.conversationId, {
+  //       project_id: query.project_id,
+  //       bot_id: query.bot_id,
+  //       user_id: query.userId,
+  //     }),
+  //   };
+  // }
 
   @UseInterceptors(ProjecLink)
   @Get('saved-knowledge')
@@ -136,7 +210,7 @@ export class ApiController {
   }
 
   @Delete('saved-knowledge-qoidoqe2koakjfoqwe')
-  public async deleteKnowledge(@Query('id') id: number) {
+  public async deleteKnowledge(@Query('id') id: string) {
     return {
       data: await this.apiService.deleteImportedKnowledge(id),
     };
@@ -263,23 +337,45 @@ export class ApiController {
   }
 
   @Post('default-project')
-  // @UseGuards(JwtAuthGuard) // Temporarily disabled for RAG testing
-  public async getDefaultProject(@Query('bot_id') bot_id: number) {
-    return await this.apiService.defaultProject(+bot_id);
+  @UseGuards(JwtAuthGuard)
+  public async getDefaultProject(@Req() req: Request) {
+    console.log('Request user:', req.user); // Debug log
+    const user = req.user as any;
+
+    if (!user || !user.id) {
+      throw new HttpException(
+        'User not authenticated or missing ID',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    console.log('User ID:', user.id); // Debug log
+    const defaultBot = await this.botsService.getDefaultBotForUser({
+      user_id: user.id,
+    });
+    return await this.apiService.defaultProject({
+      bot_id: defaultBot.id,
+      user_id: user.id,
+    });
   }
 
   @Put('file-connection')
-  // @UseGuards(JwtAuthGuard) // Temporarily disabled for RAG testing
+  @UseGuards(JwtAuthGuard)
   public async connectFile(
-    @Query('bot_id') bot_id: number,
+    @Req() req: Request,
     @Body()
-    body: { project_id: number; learning_session_id: number; status: boolean },
+    body: { project_id: string; learning_session_id: string; status: boolean },
   ) {
+    const user = req.user as any;
+    const bot = await this.botsService.getDefaultBotForUser({
+      user_id: user.id,
+    });
+
     await this.apiService.connectLearnedFileToProject(
       {
         project_id: body.project_id,
         learning_session_id: body.learning_session_id,
-        bot_id,
+        bot_id: bot.id.toString(),
       },
       body.status,
     );
@@ -289,30 +385,40 @@ export class ApiController {
   }
 
   @Get('my-docs')
-  // @UseGuards(JwtAuthGuard) // Temporarily disabled for RAG testing
+  @UseGuards(JwtAuthGuard)
   public async myConnections(
-    @Query('bot_id') bot_id: number,
-    @Query('project_id') project_id: number,
+    @Req() req: Request,
+    @Query('project_id') project_id?: string,
   ) {
+    const user = req.user as any;
+    const bot = await this.botsService.getDefaultBotForUser({
+      user_id: user.id,
+    });
+
     return {
       status: true,
-      data: await this.apiService.getAllFiles(bot_id),
+      data: await this.apiService.getAllFiles(bot.id.toString()),
     };
   }
 
   @Post('upload-file')
-  // @UseGuards(JwtAuthGuard) // Temporarily disabled for RAG testing
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileFieldsInterceptor([{ name: 'file', maxCount: 1 }]))
   public async uploadFile(
     @UploadedFiles() files,
-    @Query('bot_id') bot_id: number,
-    @Query('project_id') project_id: number = null,
+    @Req() req: Request,
+    @Query('project_id') project_id: string = null,
   ) {
     const file = files?.file?.[0];
 
     if (!file || !file.buffer) {
       throw new HttpException('Input file is required', HttpStatus.BAD_REQUEST);
     }
+
+    const user = req.user as any;
+    const bot = await this.botsService.getDefaultBotForUser({
+      user_id: user.id,
+    });
 
     // Feature flag for OpenAI Knowledge Retrieval
     const useOpenAIKnowledge = process.env.USE_OPENAI_KNOWLEDGE === 'true';
@@ -330,6 +436,7 @@ export class ApiController {
             project_id,
             file.buffer,
             file.originalname,
+            user.id,
           );
 
         console.log(
@@ -364,7 +471,7 @@ export class ApiController {
         name: file.originalname,
         mimetype: file.mimetype,
       },
-      { bot_id, project_id },
+      { bot_id: bot.id.toString(), project_id },
     );
 
     return {
@@ -376,14 +483,19 @@ export class ApiController {
   }
 
   @Post('train-files')
-  // @UseGuards(JwtAuthGuard) // Temporarily disabled for RAG testing
+  @UseGuards(JwtAuthGuard)
   public async trainFiles(
-    @Query('bot_id') bot_id: number,
-    @Query('project_id') project_id: number,
+    @Req() req: Request,
+    @Query('project_id') project_id: string,
   ) {
     if (!project_id) {
       throw new HttpException('Project ID is required', HttpStatus.BAD_REQUEST);
     }
+
+    const user = req.user as any;
+    const bot = await this.botsService.getDefaultBotForUser({
+      user_id: user.id,
+    });
 
     // Feature flag for OpenAI Knowledge Retrieval
     const useOpenAIKnowledge = process.env.USE_OPENAI_KNOWLEDGE === 'true';
@@ -430,7 +542,7 @@ export class ApiController {
     // Fallback to existing system
     console.log('[Fallback] Using existing training system');
     const result = await this.apiService.trainPendingFiles({
-      bot_id,
+      bot_id: bot.id.toString(),
       project_id,
     });
 
@@ -441,13 +553,18 @@ export class ApiController {
   }
 
   @Get('pending-files')
-  // @UseGuards(JwtAuthGuard) // Temporarily disabled for RAG testing
+  @UseGuards(JwtAuthGuard)
   public async getPendingFiles(
-    @Query('bot_id') bot_id: number,
-    @Query('project_id') project_id: number,
+    @Req() req: Request,
+    @Query('project_id') project_id: string,
   ) {
+    const user = req.user as any;
+    const bot = await this.botsService.getDefaultBotForUser({
+      user_id: user.id,
+    });
+
     const pendingFiles = await this.apiService.getPendingFiles({
-      bot_id,
+      bot_id: bot.id.toString(),
       project_id,
     });
 
@@ -458,14 +575,13 @@ export class ApiController {
   }
 
   @Post('train')
-  // @UseGuards(JwtAuthGuard) // Temporarily disabled for RAG testing
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileFieldsInterceptor([{ name: 'file', maxCount: 1 }]))
   public async trainModel(
     @UploadedFiles() files,
     @Req() req: Request,
-    @Query('bot_id') bot_id: number,
     @Body() body: { raw?: string },
-    @Query('project_id') project_id: number = null,
+    @Query('project_id') project_id: string = null,
   ) {
     const file = files?.file?.[0];
 
@@ -473,86 +589,80 @@ export class ApiController {
       throw new HttpException('Input file is required', HttpStatus.BAD_REQUEST);
     }
 
+    const user = req.user as any;
+    const bot = await this.botsService.getDefaultBotForUser({
+      user_id: user.id,
+    });
+
     await this.apiService.trainWithFile(
       {
         content: file.buffer,
         name: file.originalname,
         mimetype: file.mimetype,
       },
-      { bot_id, project_id },
+      { bot_id: bot.id.toString(), project_id },
     );
 
     return {
       status: true,
       data: [],
     };
+  }
 
-    const user = req?.user as UserModel;
-    const inputText = body.raw || null;
-    if (!files?.file?.[0]?.buffer && !inputText) {
-      throw new HttpException('Input file is required', HttpStatus.BAD_REQUEST);
+  // @Delete('train')
+  // @UseGuards(JwtAuthGuard)
+  // async deleteTrain(
+  //   @Query('bot_id') bot_id: string,
+  //   @Query('project_id') project_id: string = null,
+  // ) {
+  //   return {
+  //     status: true,
+  //     data: await this.apiService.deleteAllIntents(bot_id, project_id),
+  //   };
+  // }
+
+  // @Post('/update-bot-prompt')
+  // // @UseGuards(JwtAuthGuard) // Temporarily disabled for RAG testing
+  // async updateBotPrompt(
+  //   @Body()
+  //   body: {
+  //     prompt_answer_pre_prefix: string;
+  //     id: string;
+  //     prompt_prefix: string;
+  //   },
+  // ) {
+  //   return {
+  //     status: true,
+  //     data: await this.botService.updateBot(body.id, {
+  //       prompt_answer_pre_prefix: body.prompt_answer_pre_prefix,
+  //       prompt_prefix: body.prompt_prefix,
+  //     }),
+  //   };
+  // }
+  @Get('bot-prompt')
+  @UseGuards(JwtAuthGuard)
+  async getBotPrompt(@Req() req: Request, @Query('bot_id') bot_id?: string) {
+    const user = req.user as any;
+
+    // If bot_id is provided, use it; otherwise get user's default bot
+    let bot;
+    if (bot_id) {
+      bot = await this.botsService.getBot(+bot_id);
+    } else {
+      bot = await this.botsService.getDefaultBotForUser({ user_id: user.id });
     }
 
-    return {
-      status: true,
-      data: await this.apiService.trainModel(
-        files?.file?.[0]?.buffer || inputText,
-        {
-          bot_id: +bot_id,
-          project_id: project_id && project_id,
-          mode: files?.file?.[0]?.buffer
-            ? files?.file?.[0]?.originalname?.split('.').slice(-1)[0]
-            : 'raw-lines',
-        },
-      ),
-    };
-  }
-
-  @Delete('train')
-  @UseGuards(JwtAuthGuard)
-  async deleteTrain(
-    @Query('bot_id') bot_id: number,
-    @Query('project_id') project_id: number = null,
-  ) {
-    return {
-      status: true,
-      data: await this.apiService.deleteAllIntents(bot_id, project_id),
-    };
-  }
-
-  @Post('/update-bot-prompt')
-  // @UseGuards(JwtAuthGuard) // Temporarily disabled for RAG testing
-  async updateBotPrompt(
-    @Body()
-    body: {
-      prompt_answer_pre_prefix: string;
-      id: number;
-      prompt_prefix: string;
-    },
-  ) {
-    return {
-      status: true,
-      data: await this.botService.updateBot(+body.id, {
-        prompt_answer_pre_prefix: body.prompt_answer_pre_prefix,
-        prompt_prefix: body.prompt_prefix,
-      }),
-    };
-  }
-  @Get('/bot-prompt')
-  // @UseGuards(JwtAuthGuard) // Temporarily disabled for RAG testing
-  async getBotPrompt(@Query('bot_id') bot_id: number) {
-    const bot = await this.botService.getBot(+bot_id);
     return {
       status: true,
       data: bot ? bot.dataValues : null,
     };
   }
 
-  @Get('/bot')
-  async getBot(@Query('id') id: number) {
-    return {
-      status: true,
-      data: (await this.botService.getBot(+id)).config_for_front,
-    };
-  }
+  // @Get('/bot')
+  // async getBot(@Query('id') id: string) {
+  //   return {
+  //     status: true,
+  //     data: (await this.botService.getBot(id)).config_for_front,
+  //   };
+  // }
 }

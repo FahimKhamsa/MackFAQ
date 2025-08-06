@@ -8,10 +8,14 @@ import {
   Param,
   UploadedFile,
   UseInterceptors,
+  UseGuards,
   HttpException,
   HttpStatus,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Request } from 'express';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { OpenaiKnowledgeService } from './openai-knowledge.service';
 
 @Controller('openai-knowledge')
@@ -30,7 +34,7 @@ export class OpenaiKnowledgeController {
   ) {
     try {
       const result = await this.openaiKnowledgeService.createOrGetAssistant(
-        parseInt(projectId),
+        projectId,
         instructions,
       );
       return {
@@ -50,20 +54,31 @@ export class OpenaiKnowledgeController {
    * Upload file for knowledge retrieval
    */
   @Post('upload/:projectId')
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
     @Param('projectId') projectId: string,
     @UploadedFile() file: Express.Multer.File,
+    @Req() req: Request,
   ) {
     if (!file) {
       throw new HttpException('No file provided', HttpStatus.BAD_REQUEST);
     }
 
+    const user = req.user as any;
+    if (!user || !user.id) {
+      throw new HttpException(
+        'User not authenticated or missing ID',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
     try {
       const result = await this.openaiKnowledgeService.uploadFileForRetrieval(
-        parseInt(projectId),
+        projectId,
         file.buffer,
         file.originalname,
+        user.id,
       );
 
       return {
@@ -90,7 +105,7 @@ export class OpenaiKnowledgeController {
     body: {
       question: string;
       threadId?: string;
-      userId?: number;
+      userId?: string;
       sessionId?: string;
     },
   ) {
@@ -100,7 +115,7 @@ export class OpenaiKnowledgeController {
 
     try {
       const result = await this.openaiKnowledgeService.askQuestion(
-        parseInt(projectId),
+        projectId,
         body.question,
         body.threadId,
         body.userId,
@@ -127,11 +142,11 @@ export class OpenaiKnowledgeController {
   @Post('thread/:projectId')
   async createThread(
     @Param('projectId') projectId: string,
-    @Body() body: { userId?: number; sessionId?: string },
+    @Body() body: { userId?: string; sessionId?: string },
   ) {
     try {
       const result = await this.openaiKnowledgeService.createThread(
-        parseInt(projectId),
+        projectId,
         body.userId,
         body.sessionId,
       );
@@ -156,7 +171,7 @@ export class OpenaiKnowledgeController {
   async getProjectFiles(@Param('projectId') projectId: string) {
     try {
       const files = await this.openaiKnowledgeService.getProjectFiles(
-        parseInt(projectId),
+        projectId,
       );
 
       return {
@@ -178,7 +193,7 @@ export class OpenaiKnowledgeController {
   async getProjectAssistant(@Param('projectId') projectId: string) {
     try {
       const assistant = await this.openaiKnowledgeService.getProjectAssistant(
-        parseInt(projectId),
+        projectId,
       );
 
       return {
@@ -211,7 +226,7 @@ export class OpenaiKnowledgeController {
     try {
       const result =
         await this.openaiKnowledgeService.updateAssistantInstructions(
-          parseInt(projectId),
+          projectId,
           instructions,
         );
 
@@ -237,7 +252,7 @@ export class OpenaiKnowledgeController {
   ) {
     try {
       const result = await this.openaiKnowledgeService.deleteFile(
-        parseInt(projectId),
+        projectId,
         fileId,
       );
 
@@ -264,7 +279,7 @@ export class OpenaiKnowledgeController {
     );
     try {
       const result = await this.openaiKnowledgeService.trainUploadedFiles(
-        parseInt(projectId),
+        projectId,
       );
 
       console.log(
@@ -293,7 +308,7 @@ export class OpenaiKnowledgeController {
   async retryTrainFiles(@Param('projectId') projectId: string) {
     try {
       const result = await this.openaiKnowledgeService.retryFailedFiles(
-        parseInt(projectId),
+        projectId,
       );
 
       return {
@@ -320,7 +335,7 @@ export class OpenaiKnowledgeController {
   ) {
     try {
       const files = await this.openaiKnowledgeService.getFilesByStatus(
-        parseInt(projectId),
+        projectId,
         status,
       );
 

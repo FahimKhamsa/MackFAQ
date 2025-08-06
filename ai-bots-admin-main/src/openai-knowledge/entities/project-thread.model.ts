@@ -17,17 +17,17 @@ import { ProjectAssistantModel } from './project-assistant.model';
 export class ProjectThreadModel extends Model<ProjectThreadModel> {
   @PrimaryKey
   @Column({
-    type: DataType.INTEGER,
-    autoIncrement: true,
+    type: DataType.UUID,
+    defaultValue: DataType.UUIDV4,
   })
-  id: number;
+  id: string;
 
   @ForeignKey(() => ProjectAssistantModel)
   @Column({
-    type: DataType.INTEGER,
+    type: DataType.UUID,
     allowNull: false,
   })
-  assistant_id: number;
+  assistant_id: string;
 
   @Column({
     type: DataType.STRING(255),
@@ -36,10 +36,10 @@ export class ProjectThreadModel extends Model<ProjectThreadModel> {
   openai_thread_id: string;
 
   @Column({
-    type: DataType.INTEGER,
-    allowNull: true,
+    type: DataType.UUID,
+    allowNull: false,
   })
-  user_id: number;
+  user_id: string;
 
   @Column({
     type: DataType.STRING(255),

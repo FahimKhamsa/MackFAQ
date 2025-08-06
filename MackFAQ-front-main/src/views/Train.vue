@@ -45,7 +45,7 @@
               <label class="form-label">Select Project</label>
               <ListOfProjects :allowEmpty="true" v-model="project_id"></ListOfProjects>
             </div>
-            
+
             <div v-if="project_id" class="project-url-section">
               <label class="form-label">Public Chat URL</label>
               <div class="url-display">
@@ -68,30 +68,19 @@
             <form @submit.prevent="updatePrePrompt" class="prompts-form">
               <div class="form-group" v-if="GLOBAL_PROMPT_SHOW">
                 <label class="form-label">{{ $t(PROMPT_LABEL_NAME) }}</label>
-                <textarea
-                  class="form-textarea"
-                  rows="8"
-                  :placeholder="$t('text')"
-                  v-model.trim="prompt_prefix"
-                ></textarea>
+                <textarea class="form-textarea" rows="8" :placeholder="$t('text')"
+                  v-model.trim="prompt_prefix"></textarea>
               </div>
 
               <div class="form-group" v-if="PROMPT_FOR_ANSWERS_SHOW">
                 <label class="form-label">{{ $t(PROMPT_FOR_ANSWERS_LABEL_NAME) }}</label>
-                <Textarea
-                  :placeholder="$t('text')"
-                  v-model="prompt_answer_pre_prefix"
-                ></Textarea>
+                <Textarea :placeholder="$t('text')" v-model="prompt_answer_pre_prefix"></Textarea>
               </div>
 
               <div class="form-group" v-if="PROJECT_SHOW || DEFAULT_PROJECT_ID">
                 <label class="form-label">Project-Specific Prompt</label>
-                <textarea
-                  class="form-textarea"
-                  rows="8"
-                  :placeholder="$t('prompt_for_project_prefix')"
-                  v-model.trim="project_prompt_prefix"
-                ></textarea>
+                <textarea class="form-textarea" rows="8" :placeholder="$t('prompt_for_project_prefix')"
+                  v-model.trim="project_prompt_prefix"></textarea>
               </div>
 
               <button type="submit" class="btn-modern btn-primary" ref="submit">
@@ -103,155 +92,129 @@
         </div>
       </div>
     </div>
-      <!-- Document Management Section -->
-      <div class="train-grid" v-if="UPLOADING_FAQ_SHOW">
-        <!-- File Upload Card -->
-        <div class="card">
-          <div class="card-header">
-            <h3><i class="fas fa-cloud-upload-alt"></i> Document Upload</h3>
-          </div>
-          <div class="card-body">
-            <form @submit.prevent="sendForm" ref="form" class="upload-form">
-              <div class="upload-section">
-                <div class="sample-link">
-                  <a href="/Sample.csv" class="btn-modern btn-secondary btn-sm">
-                    <i class="fas fa-download"></i>
-                    Download Sample CSV
-                  </a>
-                </div>
-                
-                <div class="file-upload-area">
-                  <input
-                    type="file"
-                    name="file"
-                    ref="file"
-                    accept=".pdf, .csv"
-                    @change="chooseFile"
-                    class="file-input"
-                    id="fileInput"
-                  />
-                  <label for="fileInput" class="file-upload-label">
-                    <div class="upload-icon">
-                      <i class="fas fa-cloud-upload-alt"></i>
-                    </div>
-                    <div class="upload-text">
-                      <h4>Choose File to Upload</h4>
-                      <p>Supports PDF and CSV files</p>
-                      <div class="file-name" v-if="nameFile !== 'FAQ File<br> pdf, csv.'" v-html="nameFile"></div>
-                    </div>
-                  </label>
-                </div>
+    <!-- Document Management Section -->
+    <div class="train-grid" v-if="UPLOADING_FAQ_SHOW">
+      <!-- File Upload Card -->
+      <div class="card">
+        <div class="card-header">
+          <h3><i class="fas fa-cloud-upload-alt"></i> Document Upload</h3>
+        </div>
+        <div class="card-body">
+          <form @submit.prevent="sendForm" ref="form" class="upload-form">
+            <div class="upload-section">
+              <div class="sample-link">
+                <a href="/Sample.csv" class="btn-modern btn-secondary btn-sm">
+                  <i class="fas fa-download"></i>
+                  Download Sample CSV
+                </a>
               </div>
-            </form>
-          </div>
-        </div>
 
-        <!-- Training Data Editor Card -->
-        <div class="card" v-if="TEXT_FAQ_SHOW">
-          <div class="card-header">
-            <h3><i class="fas fa-edit"></i> Training Data Editor</h3>
-            <button
-              @click.prevent="clearTraining()"
-              class="btn-modern btn-danger btn-sm"
-            >
-              <i class="fas fa-trash"></i>
-              Clear All
+              <div class="file-upload-area">
+                <input type="file" name="file" ref="file" accept=".pdf, .csv" @change="chooseFile" class="file-input"
+                  id="fileInput" />
+                <label for="fileInput" class="file-upload-label">
+                  <div class="upload-icon">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                  </div>
+                  <div class="upload-text">
+                    <h4>Choose File to Upload</h4>
+                    <p>Supports PDF and CSV files</p>
+                    <div class="file-name" v-if="nameFile !== 'FAQ File<br> pdf, csv.'" v-html="nameFile"></div>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Training Data Editor Card -->
+      <div class="card" v-if="TEXT_FAQ_SHOW">
+        <div class="card-header">
+          <h3><i class="fas fa-edit"></i> Training Data Editor</h3>
+          <button @click.prevent="clearTraining()" class="btn-modern btn-danger btn-sm">
+            <i class="fas fa-trash"></i>
+            Clear All
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="editor-section">
+            <QAEditor v-model="form.text" :project_id="this.project_id"></QAEditor>
+            <button type="submit" @click="sendForm" class="btn-modern btn-primary" ref="submit">
+              <i class="fas fa-brain"></i>
+              {{ $t('train') }}
             </button>
-          </div>
-          <div class="card-body">
-            <div class="editor-section">
-              <QAEditor v-model="form.text" :project_id="this.project_id"></QAEditor>
-              <button 
-                type="submit" 
-                @click="sendForm"
-                class="btn-modern btn-primary"
-                ref="submit"
-              >
-                <i class="fas fa-brain"></i>
-                {{ $t('train') }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Train AI Card -->
-        <div class="card full-width" v-if="project_id">
-          <div class="card-header">
-            <h3><i class="fas fa-brain"></i> AI Training</h3>
-          </div>
-          <div class="card-body">
-            <div class="training-section">
-              <p class="training-description">
-                Upload your files first, then click "Train AI" to process all pending files and train your AI assistant.
-              </p>
-              <button 
-                @click="trainAI"
-                class="btn-modern btn-primary btn-large"
-                ref="trainButton"
-              >
-                <i class="fas fa-brain"></i>
-                Train AI
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Available Files Card -->
-        <div class="card full-width" v-if="!reload && availableFiles && availableFiles.length">
-          <div class="card-header">
-            <h3><i class="fas fa-files"></i> Available Documents</h3>
-            <span class="file-count">{{ availableFiles.length }} files</span>
-          </div>
-          <div class="card-body">
-            <div class="files-table-container">
-              <table class="modern-table">
-                <thead>
-                  <tr>
-                    <th>File Name</th>
-                    <th>Upload Date</th>
-                    <th v-if="this.project_id && this.project">Use in {{ this.project.name }}</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(item, index) in availableFiles" :key="item.id">
-                    <td class="file-name-cell">
-                      <i class="fas fa-file-alt file-icon"></i>
-                      {{ item.file_name }}
-                    </td>
-                    <td class="date-cell">{{ item.createdAt.split("T")[0] }}</td>
-                    <td v-if="this.project && this.project_id" class="checkbox-cell" :key="this.checks[item.id]">
-                      <label class="checkbox-label">
-                        <input
-                          v-model="this.checks[item.id]"
-                          @change="
-                            () =>
-                              $store.dispatch('updateFileConnection', {
-                                project_id: this.project_id,
-                                learning_session_id: item.id,
-                                status: this.checks[item.id],
-                              })
-                          "
-                          type="checkbox"
-                        />
-                        <span class="checkmark"></span>
-                      </label>
-                    </td>
-                    <td class="actions-cell">
-                      <button
-                        @click="() => deleteUploadedKnowledge(item.id)"
-                        class="btn-modern btn-danger btn-sm"
-                      >
-                        <i class="fas fa-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
           </div>
         </div>
       </div>
+
+      <!-- Train AI Card -->
+      <div class="card full-width" v-if="project_id">
+        <div class="card-header">
+          <h3><i class="fas fa-brain"></i> AI Training</h3>
+        </div>
+        <div class="card-body">
+          <div class="training-section">
+            <p class="training-description">
+              Upload your files first, then click "Train AI" to process all pending files and train your AI assistant.
+            </p>
+            <button @click="trainAI" class="btn-modern btn-primary btn-large" ref="trainButton">
+              <i class="fas fa-brain"></i>
+              Train AI
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Available Files Card -->
+      <div class="card full-width" v-if="!reload && availableFiles && availableFiles.length">
+        <div class="card-header">
+          <h3><i class="fas fa-files"></i> Available Documents</h3>
+          <span class="file-count">{{ availableFiles.length }} files</span>
+        </div>
+        <div class="card-body">
+          <div class="files-table-container">
+            <table class="modern-table">
+              <thead>
+                <tr>
+                  <th>File Name</th>
+                  <th>Upload Date</th>
+                  <th v-if="this.project_id && this.project">Use in {{ this.project.name }}</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in availableFiles" :key="item.id">
+                  <td class="file-name-cell">
+                    <i class="fas fa-file-alt file-icon"></i>
+                    {{ item.file_name }}
+                  </td>
+                  <td class="date-cell">{{ item.createdAt.split("T")[0] }}</td>
+                  <td v-if="this.project && this.project_id" class="checkbox-cell" :key="this.checks[item.id]">
+                    <label class="checkbox-label">
+                      <input v-model="this.checks[item.id]" @change="
+                        () =>
+                          $store.dispatch('updateFileConnection', {
+                            project_id: this.project_id,
+                            learning_session_id: item.id,
+                            status: this.checks[item.id],
+                          })
+                      " type="checkbox" />
+                      <span class="checkmark"></span>
+                    </label>
+                  </td>
+                  <td class="actions-cell">
+                    <button @click="() => deleteUploadedKnowledge(item.id)" class="btn-modern btn-danger btn-sm">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -432,21 +395,21 @@ export default {
       }
 
       this.$refs.submit.classList.add("preloader");
-      
+
       try {
         const file = this.$refs.file.files[0];
-        
+
         await this.$store.dispatch('uploadFile', {
           file: file,
           projectId: this.project_id
         });
 
         this.$toast.success(`${file.name} uploaded successfully. Click "Train AI" to start training.`);
-        
+
         // Clear the file input
         this.$refs.file.value = null;
         this.nameFile = "FAQ File<br> pdf, csv.";
-        
+
         // Refresh the files list
         this.reload = true;
         await this.$store.dispatch("updateProjectSavedKnowledge", {
@@ -455,7 +418,7 @@ export default {
         setTimeout(() => {
           this.reload = false;
         }, 100);
-        
+
       } catch (error) {
         console.error('Upload failed:', error);
         this.$toast.error(`Failed to upload file: ${error.message}`);
@@ -485,18 +448,18 @@ export default {
       }
 
       this.$refs.trainButton.classList.add("preloader");
-      
+
       try {
         const result = await this.$store.dispatch('trainFiles', {
           projectId: this.project_id
         });
 
         this.$toast.success(`Training completed: ${result.data.trainedCount} files trained successfully`);
-        
+
         if (result.data.failedCount > 0) {
           this.$toast.error(`${result.data.failedCount} files failed to train`);
         }
-        
+
         // Refresh the files list
         this.reload = true;
         await this.$store.dispatch("updateProjectSavedKnowledge", {
@@ -505,7 +468,7 @@ export default {
         setTimeout(() => {
           this.reload = false;
         }, 100);
-        
+
       } catch (error) {
         console.error('Training failed:', error);
         this.$toast.error(`Failed to train files: ${error.message}`);
@@ -541,10 +504,10 @@ export default {
             data: data,
             method: "POST",
             headers: headers,
-          }).then((result) => {});
+          }).then((result) => { });
         }
         axios
-          .post(API_URL + "/local-intents-responses-storage/projects/update", {
+          .post(API_URL + "/projects/management/update", {
             prompt_prefix: this.project_prompt_prefix,
             id: +this.project_id,
             bot_id: +API_BOT_ID,
@@ -977,11 +940,11 @@ Are you sure you want to upload the file?`)
       position: relative;
       backdrop-filter: blur(10px);
 
-      div + div {
+      div+div {
         margin-top: 0.5rem;
       }
 
-      & + .item {
+      &+.item {
         margin-top: 0.5rem;
       }
     }
@@ -1026,6 +989,7 @@ Are you sure you want to upload the file?`)
     0% {
       right: -300px;
     }
+
     100% {
       right: 15px;
     }
@@ -1100,7 +1064,12 @@ Are you sure you want to upload the file?`)
 }
 
 @keyframes spin {
-  0% { transform: translate(-50%, -50%) rotate(0deg); }
-  100% { transform: translate(-50%, -50%) rotate(360deg); }
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
 }
 </style>

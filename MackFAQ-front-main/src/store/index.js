@@ -7,14 +7,22 @@ const API_URL = process.env.VUE_APP_API_HOST;
 let API_BOT_ID = process.env.VUE_APP_API_BOT_ID;
 
 function setKT(t) {
-  localStorage.setItem(KT, t);
+  if (t === null || t === undefined) {
+    localStorage.removeItem(KT);
+  } else {
+    localStorage.setItem(KT, t);
+  }
 }
 export function getKT() {
   return localStorage.getItem(KT);
 }
 
 function setRefreshToken(t) {
-  localStorage.setItem('refreshToken', t);
+  if (t === null || t === undefined) {
+    localStorage.removeItem('refreshToken');
+  } else {
+    localStorage.setItem('refreshToken', t);
+  }
 }
 function getRefreshToken() {
   return localStorage.getItem('refreshToken');
@@ -24,6 +32,7 @@ export default createStore({
   state: {
     availableProjects: [],
     current_bot_data: null,
+    defaultBot: null,
     projectsTrainingData: {},
     projectsConversationsList: {},
     savedKnowledgeByLink: {},
@@ -47,6 +56,7 @@ export default createStore({
     getMyDocsList: state => state.myDocsList,
     getDocsConnectedToProject: state => project_id => state.myDocsListByProject[project_id] ?? [],
     getProfile: state => state.profile,
+    getDefaultBot: state => state.defaultBot,
   },
   mutations: {
     SET_AVAILABLE_PROJECTS(state, list) {
@@ -84,10 +94,13 @@ export default createStore({
     SET_ME(state, data) {
       state.profile = data;
     },
+    SET_DEFAULT_BOT(state, bot) {
+      state.defaultBot = bot;
+    },
   },
   actions: {
     async updateAvailableProjects(context) {
-      return await axiosConfigured.get(API_URL + '/local-intents-responses-storage/projects?bot_id=' + API_BOT_ID)
+      return await axiosConfigured.get(API_URL + '/projects/management')
         .then(async result => {
           context.commit('SET_AVAILABLE_PROJECTS', result.data.list || []);
           await context.dispatch('myLoadedFiles');
@@ -99,7 +112,7 @@ export default createStore({
         });
     },
     updateBotPreprompt(context) {
-      axiosConfigured.get(API_URL + '/api/bot-prompt?bot_id=' + API_BOT_ID)
+      axiosConfigured.get(API_URL + '/api/bot-prompt')
         .then(result => {
           context.commit('SET_CURRENT_BOT_DATA', result?.data?.data || null);
         })
@@ -109,7 +122,7 @@ export default createStore({
         });
     },
     updateProjectTrainingData(context, { project_id }) {
-      axiosConfigured.get(API_URL + '/local-intents-responses-storage/projects/knowledge-base?bot_id=' + API_BOT_ID + '&project_id=' + project_id)
+      axiosConfigured.get(API_URL + '/projects/management/knowledge-base?project_id=' + project_id)
         .then(async result => {
           context.commit('SET_PROJECT_TRAINING_DATA', { project_id, data: result?.data?.data || '' });
           await context.dispatch('myLoadedFiles');
@@ -120,7 +133,7 @@ export default createStore({
         });
     },
     updateProjectConversationsList(context, { project_id }) {
-      axiosConfigured.get(API_URL + '/api/list-of-conversations?bot_id=' + API_BOT_ID + '&project_id=' + project_id)
+      axiosConfigured.get(API_URL + '/api/list-of-conversations?project_id=' + project_id)
         .then(result => {
           const data = result?.data?.data || {};
           context.commit('SET_PROJECT_CONVERSATIONS_LIST', { project_id, data });
@@ -132,7 +145,7 @@ export default createStore({
         });
     },
     updateProjectSavedKnowledge(context, { project_id, project_link }) {
-      axiosConfigured.get(API_URL + '/api/saved-knowledge?bot_id=' + API_BOT_ID, { params: { project_link, project_id } })
+      axiosConfigured.get(API_URL + '/api/saved-knowledge', { params: { project_link, project_id } })
         .then(result => {
           context.commit(
             'SET_SAVED_KNOWLEDGE',
@@ -164,7 +177,7 @@ export default createStore({
         });
     },
     myLoadedFiles(context) {
-      return axiosConfigured.get(API_URL + '/api/my-docs?bot_id=' + API_BOT_ID)
+      return axiosConfigured.get(API_URL + '/api/my-docs')
         .then(result => {
           context.commit('SET_MY_DOCS', result?.data?.data ?? []);
         })
@@ -255,40 +268,30 @@ export default createStore({
     async loadMe(context) {
       return axiosConfigured.get(API_URL + '/users/me')
         .then((resp) => {
-          API_BOT_ID = resp.data.default_bot.id;
           context.commit('SET_ME', resp.data.user);
+          if (resp.data.default_bot) {
+            context.commit('SET_DEFAULT_BOT', resp.data.default_bot);
+          }
         })
         .catch((error) => {
-          // For RAG testing without authentication, use environment bot_id
-          console.log('loadMe failed, using environment bot_id for RAG testing');
-          API_BOT_ID = process.env.VUE_APP_API_BOT_ID || 1;
+          // For RAG testing without authentication, create a fallback bot
+          console.log('loadMe failed, using fallback bot for testing');
+          context.commit('SET_DEFAULT_BOT', {
+            id: process.env.VUE_APP_API_BOT_ID || 1,
+            name: 'Default Bot'
+          });
         });
     },
 
     async loadDefaultProject(context) {
-      if (!API_BOT_ID) {
-        await context.dispatch('loadMe');
-      }
-      return axiosConfigured.post(API_URL + '/api/default-project?bot_id=' + API_BOT_ID).then(r => r.data.id);
+      return axiosConfigured.post(API_URL + '/api/default-project').then(r => r.data.id);
     },
 
     async renameProject(context, { projectId, newName }) {
       try {
-        // Get the current user profile to get creator_id
-        const profile = context.getters.getProfile;
-        let creatorId = profile?.id;
-
-        // If profile is not loaded, try to load it first
-        if (!creatorId) {
-          await context.dispatch('loadMe');
-          creatorId = context.getters.getProfile?.id;
-        }
-
-        const response = await axiosConfigured.post(API_URL + '/local-intents-responses-storage/projects/update', {
+        const response = await axiosConfigured.post(API_URL + '/projects/management/update', {
           id: projectId,
-          name: newName,
-          bot_id: API_BOT_ID,
-          creator_id: creatorId || 1 // Fallback to 1 if no user ID available
+          name: newName
         });
 
         // Refresh the projects list after successful rename
@@ -303,9 +306,8 @@ export default createStore({
 
     async deleteProject(context, { projectId }) {
       try {
-        const response = await axiosConfigured.post(API_URL + '/local-intents-responses-storage/projects/delete', {
-          id: projectId,
-          bot_id: API_BOT_ID
+        const response = await axiosConfigured.post(API_URL + '/projects/management/delete', {
+          id: projectId
         });
 
         // Refresh the projects list after successful deletion

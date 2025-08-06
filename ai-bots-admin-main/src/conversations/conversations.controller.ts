@@ -13,8 +13,8 @@ export interface IConversationIds {
 export interface ICreateConversationDTO {
   conversationId?: string;
   messages: IMessage[];
-  project_id?: number;
-  assistant_id?: number;
+  project_id?: string;
+  assistant_id?: string;
   name?: string;
 }
 
@@ -48,7 +48,7 @@ export class ConversationsController {
   }
 
   @Get('list-of-conversations')
-  async getListOfConversations(@Query() query: { project_id: number }) {
+  async getListOfConversations(@Query() query: { project_id: string }) {
     return {
       data: await this.conversationsService.getConversationsList(
         query.project_id,

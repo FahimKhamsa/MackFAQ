@@ -15,10 +15,10 @@ import * as bcrypt from 'bcryptjs';
 export class UserModel extends Model<UserModel> {
   @PrimaryKey
   @Column({
-    type: DataType.INTEGER,
-    autoIncrement: true,
+    type: DataType.UUID,
+    defaultValue: DataType.UUIDV4,
   })
-  id: number;
+  id: string;
 
   @Column({
     type: DataType.STRING,

@@ -2,7 +2,6 @@ import {
   BelongsTo,
   Column,
   DataType,
-  ForeignKey,
   Model,
   PrimaryKey,
   Table,
@@ -27,22 +26,22 @@ export class LearningSessionProjectConnection extends Model<
 > {
   @PrimaryKey
   @Column({
-    type: DataType.INTEGER,
-    autoIncrement: true,
+    type: DataType.UUID,
+    defaultValue: DataType.UUIDV4,
   })
-  id: number;
+  id: string;
 
   @Column({
-    type: DataType.INTEGER,
+    type: DataType.UUID,
     allowNull: false,
   })
-  project_id: number;
+  project_id: string;
 
   @Column({
-    type: DataType.INTEGER,
+    type: DataType.UUID,
     allowNull: false,
   })
-  learning_session_id: number;
+  learning_session_id: string;
 
   @BelongsTo(() => LearningSession, 'learning_session_id')
   learning_session: LearningSession;

@@ -12,7 +12,7 @@ export class MessagesService {
   public async createNewMessage(payload: {
     id?: string;
     conversation_id: string;
-    assistant_id?: number;
+    assistant_id?: string;
     previous_message_id?: string;
     next_message_id?: string;
     text: string;

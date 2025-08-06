@@ -1,18 +1,16 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
-import { BotsModule } from './bots/bots.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ConfigModule } from '@nestjs/config';
 import { ApiModule } from './api/api.module';
 import { MessagesModule } from './messages/messages.module';
-import { RasaapiModule } from './rasaapi/rasaapi.module';
-import { LocalIntentsResponsesStorageModule } from './local-intents-responses-storage/local-intents-responses-storage.module';
+import { ProjectsModule } from './projects/projects.module';
 import { ScheduleModule } from '@nestjs/schedule';
-import { SOPModule } from './sop/sop.module';
-import { AIConfigModule } from './ai-config/ai-config.module';
 import { OpenaiKnowledgeModule } from './openai-knowledge/openai-knowledge.module';
 import { ConversationsModule } from './conversations/conversations.module';
+import { IdentityModule } from './identity/identity.module';
+import { BotsModule } from './bots/bots.module';
 
 @Module({
   imports: [
@@ -29,13 +27,11 @@ import { ConversationsModule } from './conversations/conversations.module';
     DatabaseModule,
     BotsModule,
     MessagesModule,
-    RasaapiModule,
-    LocalIntentsResponsesStorageModule,
+    ProjectsModule,
     ScheduleModule.forRoot(),
-    SOPModule,
-    AIConfigModule,
     OpenaiKnowledgeModule,
     ConversationsModule,
+    IdentityModule,
   ],
 })
 export class AppModule {}

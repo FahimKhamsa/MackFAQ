@@ -7,30 +7,21 @@
 					<i class="fas fa-times"></i>
 				</button>
 			</div>
-			
+
 			<div class="modal-body">
 				<div class="form-group">
 					<label class="form-label">Project Name</label>
-					<input 
-						type="text" 
-						v-model="projectName"
-						@keydown.enter="createProject"
-						placeholder="Enter project name"
-						class="form-input"
-						ref="projectNameInput"
-					>
+					<input type="text" v-model="projectName" @keydown.enter="createProject" placeholder="Enter project name"
+						class="form-input" ref="projectNameInput">
 				</div>
 			</div>
-			
+
 			<div class="modal-footer">
 				<button @click="closeModal" class="btn-modern btn-secondary">
 					Cancel
 				</button>
-				<button 
-					@click="createProject" 
-					:disabled="isCreating || !projectName.trim()"
-					:class="['btn-modern', 'btn-primary', { 'loading': isCreating }]"
-				>
+				<button @click="createProject" :disabled="isCreating || !projectName.trim()"
+					:class="['btn-modern', 'btn-primary', { 'loading': isCreating }]">
 					<i v-if="!isCreating" class="fas fa-plus"></i>
 					<i v-else class="fas fa-spinner fa-spin"></i>
 					{{ isCreating ? 'Creating...' : 'Create Project' }}
@@ -92,7 +83,7 @@ export default {
 
 				// Get the current user ID from the store profile
 				let userId = this.$store.getters.getProfile?.id;
-				
+
 				// If profile is not loaded, try to load it first
 				if (!userId) {
 					console.log('Profile not loaded, attempting to load user data...');
@@ -110,12 +101,12 @@ export default {
 
 				console.log('Project creation request data:', requestData);
 
-				const response = await axios.post('/local-intents-responses-storage/projects/create', requestData);
+				const response = await axios.post('/projects/management/create', requestData);
 
 				console.log('Project creation response:', response.data);
 
 				await this.$store.dispatch('updateAvailableProjects');
-				
+
 				this.$toast.success('Project created successfully!');
 				this.$emit('project-created');
 				this.closeModal();
@@ -164,6 +155,7 @@ export default {
 		opacity: 0;
 		transform: translateY(-20px) scale(0.95);
 	}
+
 	to {
 		opacity: 1;
 		transform: translateY(0) scale(1);

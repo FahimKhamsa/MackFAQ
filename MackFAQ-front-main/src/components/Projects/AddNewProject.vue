@@ -2,20 +2,12 @@
     <div class="modern-add-project">
         <div class="form-group">
             <label class="form-label">Project Name</label>
-            <input 
-                type="text" 
-                placeholder="Enter project name" 
-                class="form-input"
-                v-model="name"
-                @keydown.enter="sendForm"
-            >
+            <input type="text" placeholder="Enter project name" class="form-input" v-model="name"
+                @keydown.enter="sendForm">
         </div>
         <div class="form-actions">
-            <button 
-                @click="sendForm" 
-                :disabled="isLoading || !name.trim()"
-                :class="['btn-modern', 'btn-primary', { 'loading': isLoading }]"
-            >
+            <button @click="sendForm" :disabled="isLoading || !name.trim()"
+                :class="['btn-modern', 'btn-primary', { 'loading': isLoading }]">
                 <i v-if="!isLoading" class="fas fa-plus"></i>
                 <i v-else class="fas fa-spinner fa-spin"></i>
                 {{ isLoading ? 'Creating...' : 'Create Project' }}
@@ -50,13 +42,13 @@ export default {
 
                 this.isLoading = true;
 
-                const response = await axios.post('/local-intents-responses-storage/projects/create', {
+                const response = await axios.post('/projects/management/create', {
                     name: this.name,
                     bot_id: API_BOT_ID
                 });
 
                 await this.$store.dispatch('updateAvailableProjects');
-                
+
                 this.$toast.success('Project created successfully!', { position: "top" });
                 this.name = '';
                 this.$emit('project-created');

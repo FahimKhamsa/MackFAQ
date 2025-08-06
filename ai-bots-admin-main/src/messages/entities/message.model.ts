@@ -6,8 +6,6 @@ import {
   Table,
   BelongsTo,
   ForeignKey,
-  HasMany,
-  HasOne,
 } from 'sequelize-typescript';
 import type { MessageTypes } from 'src/api/api.service';
 import { ConversationModel } from 'src/conversations/entities/conversation.model';
@@ -26,15 +24,15 @@ export class MessageModel extends Model<MessageModel> {
   id: string;
 
   @Column({
-    type: DataType.INTEGER,
-    defaultValue: null,
+    type: DataType.UUID,
+    allowNull: false,
   })
-  assistant_id: number;
+  assistant_id: string;
 
   @ForeignKey(() => ConversationModel)
   @Column({
     type: DataType.UUID,
-    defaultValue: null,
+    allowNull: false,
   })
   conversation_id: string;
 
@@ -61,18 +59,6 @@ export class MessageModel extends Model<MessageModel> {
     defaultValue: null,
   })
   text: string;
-
-  @Column({
-    type: DataType.DATE,
-    defaultValue: DataType.NOW,
-  })
-  created_at: Date;
-
-  @Column({
-    type: DataType.DATE,
-    defaultValue: DataType.NOW,
-  })
-  updated_at: Date;
 
   @BelongsTo(() => ConversationModel, 'conversation_id')
   conversation: ConversationModel;

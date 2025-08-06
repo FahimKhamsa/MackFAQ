@@ -1,4 +1,5 @@
 import {
+  BelongsTo,
   Column,
   DataType,
   Index,
@@ -6,31 +7,33 @@ import {
   PrimaryKey,
   Table,
 } from 'sequelize-typescript';
+import { ProjectAssistantModel } from 'src/openai-knowledge/entities/project-assistant.model';
+import { UserModel } from 'src/users/entities/user.model';
 
 @Table({
-  tableName: 'local_projects',
+  tableName: 'projects',
   timestamps: true,
   paranoid: true,
 })
-export class LocalStorageModel extends Model<LocalStorageModel> {
+export class ProjectModel extends Model<ProjectModel> {
   @PrimaryKey
   @Column({
-    type: DataType.INTEGER,
-    autoIncrement: true,
+    type: DataType.UUID,
+    defaultValue: DataType.UUIDV4,
   })
-  id: number;
+  id: string;
 
   @Column({
-    type: DataType.INTEGER,
-    defaultValue: null,
+    type: DataType.UUID,
+    allowNull: false,
   })
-  bot_id: number;
+  assistant_id: string;
 
   @Column({
-    type: DataType.INTEGER,
-    defaultValue: null,
+    type: DataType.UUID,
+    allowNull: false,
   })
-  creator_id: number;
+  user_id: string;
 
   @Column({
     type: DataType.STRING(255),

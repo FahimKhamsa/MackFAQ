@@ -1,6 +1,6 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectModel } from '@nestjs/sequelize';
+import { Sequelize } from 'sequelize-typescript';
 import { openSync, writeFileSync } from 'fs';
 import { CreateBotDTO } from './dto/create.dto';
 import { BotModel } from './entities/bot.model';
@@ -9,15 +9,20 @@ import * as crypto from 'crypto';
 interface IBotCreatePayload extends CreateBotDTO {
   favicon_image_file: { data: Buffer; fileName: string };
   background_image_file: { data: Buffer; fileName: string };
-  creator_id: number;
+  user_id: string;
 }
 
 @Injectable()
 export class BotsService {
+  private botModel: typeof BotModel;
+
   constructor(
     private configService: ConfigService,
-    @InjectModel(BotModel) private botModel: typeof BotModel,
-  ) {}
+    @Inject('SEQUELIZE')
+    private sequelize: Sequelize,
+  ) {
+    this.botModel = this.sequelize.models.BotModel as typeof BotModel;
+  }
 
   public saveFile(fileData: Buffer, fileExtensionOrName: string) {
     const fileExtension = fileExtensionOrName.includes('.')
@@ -53,10 +58,14 @@ export class BotsService {
     return await this.botModel.destroy({ where: { id } });
   }
 
-  public async getDefaultBotForUser(payload: { user_id: number }) {
+  public async getDefaultBotForUser(payload: { user_id: string }) {
+    if (!payload.user_id || payload.user_id === 'NaN') {
+      throw new Error('Invalid user ID provided');
+    }
+
     let bot = await this.botModel.findOne({
       where: {
-        creator_id: payload.user_id,
+        user_id: payload.user_id,
       },
     });
 
@@ -65,7 +74,7 @@ export class BotsService {
     }
 
     bot = new this.botModel();
-    bot.creator_id = payload.user_id;
+    bot.user_id = payload.user_id;
     await bot.save();
 
     return bot;

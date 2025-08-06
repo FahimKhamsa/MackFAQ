@@ -17,21 +17,27 @@ import { ProjectAssistantModel } from './project-assistant.model';
 export class ProjectFileModel extends Model<ProjectFileModel> {
   @PrimaryKey
   @Column({
-    type: DataType.INTEGER,
-    autoIncrement: true,
+    type: DataType.UUID,
+    defaultValue: DataType.UUIDV4,
   })
-  id: number;
+  id: string;
 
   @ForeignKey(() => ProjectAssistantModel)
   @Column({
-    type: DataType.INTEGER,
+    type: DataType.UUID,
+    allowNull: true,
+  })
+  assistant_id: string;
+
+  @Column({
+    type: DataType.UUID,
     allowNull: false,
   })
-  assistant_id: number;
+  user_id: string;
 
   @Column({
     type: DataType.STRING(255),
-    allowNull: false,
+    allowNull: true,
   })
   openai_file_id: string;
 
@@ -57,7 +63,7 @@ export class ProjectFileModel extends Model<ProjectFileModel> {
     type: DataType.ENUM('uploaded', 'processing', 'completed', 'failed'),
     defaultValue: 'uploaded',
   })
-  status: string; // uploaded, processing, completed, failed
+  status: string;
 
   @BelongsTo(() => ProjectAssistantModel)
   assistant: ProjectAssistantModel;

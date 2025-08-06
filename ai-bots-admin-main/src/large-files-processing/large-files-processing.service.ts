@@ -1,18 +1,19 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 import {
   BadRequestException,
   Injectable,
   Logger,
   OnModuleInit,
+  Inject,
 } from '@nestjs/common';
-import { ITrainingInput } from 'src/local-intents-responses-storage/local-intents-responses-storage.service';
+// import { ITrainingInput } from 'src/projects/projects.service';
 import { TrainingLoaderService } from './training-loader/training-loader.service';
 import { IMessage } from 'src/api/dto/get-complete.dto';
 import { MessageTypes } from 'src/api/api.service';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom, map } from 'rxjs';
 import { LearningSession } from './learnings-sessions.model';
-import { InjectModel } from '@nestjs/sequelize';
-import { Readable } from 'stream';
+import { Sequelize } from 'sequelize-typescript';
 import * as FormData from 'form-data';
 import { LearningSessionProjectConnection } from './learnings-sessions-project-connection.model';
 import * as fs from 'fs';
@@ -21,21 +22,26 @@ import * as path from 'path';
 @Injectable()
 export class LargeFilesProcessingService implements OnModuleInit {
   private logger = new Logger(LargeFilesProcessingService.name);
+  private learningSession: typeof LearningSession;
+  private learningSessionProjectConnection: typeof LearningSessionProjectConnection;
 
   constructor(
     private trainingLoaderService: TrainingLoaderService,
     private httpService: HttpService,
-    @InjectModel(LearningSession)
-    private learningSession: typeof LearningSession,
-    @InjectModel(LearningSessionProjectConnection)
-    private readonly learningSessionProjectConnection: typeof LearningSessionProjectConnection,
-  ) {}
+    @Inject('SEQUELIZE')
+    private sequelize: Sequelize,
+  ) {
+    this.learningSession = this.sequelize.models
+      .LearningSession as typeof LearningSession;
+    this.learningSessionProjectConnection = this.sequelize.models
+      .LearningSessionProjectConnection as typeof LearningSessionProjectConnection;
+  }
 
   async onModuleInit() {
     await this.legacyProjectsConnections();
   }
 
-  public async getLearningSessionById(id: number) {
+  public async getLearningSessionById(id: string) {
     return this.learningSession.findByPk(id);
   }
 
@@ -248,21 +254,21 @@ export class LargeFilesProcessingService implements OnModuleInit {
     return result;
   }
 
-  public async createLearningInput(rows: ITrainingInput[], bot_id: string) {
-    let output = '';
-    for (const row of rows) {
-      output +=
-        row.questions
-          .map((question) => 'Q:\n' + question + '\nA:\n' + row.answer)
-          .join('\n\n') + '\n\n';
-    }
-    // await this.trainingLoaderService.loadTrainingFiles(output, bot_id);
-    return output.trim();
-  }
+  // public async createLearningInput(rows: ITrainingInput[], bot_id: string) {
+  //   let output = '';
+  //   for (const row of rows) {
+  //     output +=
+  //       row.questions
+  //         .map((question) => 'Q:\n' + question + '\nA:\n' + row.answer)
+  //         .join('\n\n') + '\n\n';
+  //   }
+  //   // await this.trainingLoaderService.loadTrainingFiles(output, bot_id);
+  //   return output.trim();
+  // }
 
   public async getDocsIds(
-    config: { project_id?: number; bot_id?: number },
-    docsIds?: number[],
+    config: { project_id?: string; bot_id?: string },
+    docsIds?: string[],
   ) {
     const savedLearning = await this.getDocs(config);
     return savedLearning
@@ -271,7 +277,7 @@ export class LargeFilesProcessingService implements OnModuleInit {
       .reduce((prev, cur) => prev.concat(cur), []);
   }
 
-  public async getDocs(config: { project_id?: number; bot_id?: number }) {
+  public async getDocs(config: { project_id?: string; bot_id?: string }) {
     if (!config.bot_id) {
       return [];
     }
@@ -307,7 +313,7 @@ export class LargeFilesProcessingService implements OnModuleInit {
     }
   }
 
-  public async deleteDoc(id: number) {
+  public async deleteDoc(id: string) {
     // Get the file record first to access the file path
     const fileRecord = await this.learningSession.findByPk(id);
 
@@ -421,8 +427,8 @@ export class LargeFilesProcessingService implements OnModuleInit {
   }
 
   private generateFilePath(
-    projectId: number,
-    sessionId: number,
+    projectId: string,
+    sessionId: string,
     fileName: string,
   ): string {
     const storageDir = path.join(
@@ -440,13 +446,13 @@ export class LargeFilesProcessingService implements OnModuleInit {
 
   public async uploadFileOnly(
     file: { content: Buffer; name: string; mimetype: string },
-    config: { project_id: number; bot_id: number; creator_id: number },
+    config: { project_id: string; bot_id: string; user_id: string },
   ) {
     console.log('Inside large-file-processing-service --> uploadFileOnly:');
     console.log('Uploading file', file.name);
     console.log('project_id', config.project_id);
     console.log('bot_id', config.bot_id);
-    console.log('creator_id', config.creator_id);
+    console.log('creator_id', config.user_id);
 
     const session = new this.learningSession();
 
@@ -458,7 +464,7 @@ export class LargeFilesProcessingService implements OnModuleInit {
     session.file_name = fname;
     session.project_id = config.project_id;
     session.bot_id = config.bot_id;
-    session.creator_id = config.creator_id;
+    session.user_id = config.user_id;
     session.docs_ids_from_provider = []; // Empty until trained
     session.provider_id = 'private-api';
 
@@ -504,7 +510,7 @@ export class LargeFilesProcessingService implements OnModuleInit {
   public async learnProviderWithFile(
     providerName: 'private-api',
     file: { content: Buffer; name: string; mimetype: string },
-    config: { project_id: number; bot_id: number; creator_id: number },
+    config: { project_id: string; bot_id: string; user_id: string },
   ) {
     let docsIds = [];
     console.log(
@@ -514,7 +520,7 @@ export class LargeFilesProcessingService implements OnModuleInit {
     console.log('providerName', providerName);
     console.log('project_id', config.project_id);
     console.log('bot_id', config.bot_id);
-    console.log('creator_id', config.creator_id);
+    console.log('creator_id', config.user_id);
     if (providerName === 'private-api') {
       docsIds = await this.learnPrivateApi(file);
     }
@@ -530,7 +536,7 @@ export class LargeFilesProcessingService implements OnModuleInit {
     session.file_name = fname;
     session.project_id = config.project_id;
     session.bot_id = config.bot_id;
-    session.creator_id = config.creator_id;
+    session.user_id = config.user_id;
     session.docs_ids_from_provider = docsIds;
     session.provider_id = providerName;
 
@@ -627,8 +633,8 @@ export class LargeFilesProcessingService implements OnModuleInit {
   }
 
   public async disconnectLearningSeesionToProject(payload: {
-    project_id: number;
-    learning_session_id: number;
+    project_id: string;
+    learning_session_id: string;
   }) {
     await this.learningSessionProjectConnection.destroy({
       where: {
@@ -639,8 +645,8 @@ export class LargeFilesProcessingService implements OnModuleInit {
   }
 
   public async connectLearningSeesionToProject(payload: {
-    project_id: number;
-    learning_session_id: number;
+    project_id: string;
+    learning_session_id: string;
   }) {
     const conn = await this.learningSessionProjectConnection.findOne({
       where: {
@@ -666,7 +672,7 @@ export class LargeFilesProcessingService implements OnModuleInit {
     return;
   }
 
-  public async getAllConnectionsByProject(project_id: number | number[]) {
+  public async getAllConnectionsByProject(project_id: string | string[]) {
     return this.learningSessionProjectConnection.findAll({
       where: {
         project_id,
@@ -681,7 +687,7 @@ export class LargeFilesProcessingService implements OnModuleInit {
     });
   }
 
-  public async getAllConnectionsByBot(bot_id: number | number[]) {
+  public async getAllConnectionsByBot(bot_id: string | string[]) {
     return this.learningSessionProjectConnection.findAll({
       where: {
         '$learning_session.bot_id$': bot_id,
@@ -691,8 +697,8 @@ export class LargeFilesProcessingService implements OnModuleInit {
   }
 
   public async trainPendingFiles(config: {
-    project_id: number;
-    bot_id: number;
+    project_id: string;
+    bot_id: string;
   }) {
     console.log('Training pending files for project:', config.project_id);
 
@@ -778,7 +784,7 @@ export class LargeFilesProcessingService implements OnModuleInit {
     };
   }
 
-  public async getPendingFiles(config: { project_id: number; bot_id: number }) {
+  public async getPendingFiles(config: { project_id: string; bot_id: string }) {
     return this.learningSession.findAll({
       where: {
         project_id: config.project_id,
@@ -789,7 +795,7 @@ export class LargeFilesProcessingService implements OnModuleInit {
     });
   }
 
-  public async getAllDocs(bot_id: number) {
+  public async getAllDocs(bot_id: string) {
     return this.learningSession.findAll({
       where: {
         bot_id,

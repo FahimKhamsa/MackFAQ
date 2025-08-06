@@ -269,6 +269,23 @@ export default {
 			const messageText = this.form.text;
 			this.form.text = "";
 
+			// Get user data from store
+			const userProfile = this.$store.getters.getProfile;
+			const userId = userProfile?.id || null;
+			const createdAt = new Date().toISOString();
+
+			const messageData = {
+				prompt: messageText,
+				project_id: this.selectedProject || null,
+				includeSOP: this.includeSOP,
+				model: this.selectedModel,
+				conversationId: this.conversationId || null,
+				userId: userId,
+				createdAt: createdAt,
+				filesToUse: this.selectedFiles.length ? this.selectedFiles : null,
+			};
+			console.log("Sending message data:", messageData);
+
 			try {
 				const response = await axios.get("/api/complete", {
 					params: {
@@ -276,7 +293,9 @@ export default {
 						project_id: this.selectedProject || null,
 						includeSOP: this.includeSOP,
 						model: this.selectedModel,
-						conversationId: this.conversationId,
+						conversationId: this.conversationId || null,
+						userId: userId,
+						createdAt: createdAt,
 						filesToUse: this.selectedFiles.length
 							? this.selectedFiles
 							: null,
@@ -291,7 +310,10 @@ export default {
 					timestamp: new Date(),
 				};
 
-				this.conversationId = response.data.data.conversationId;
+				// Update conversationId from response (important for new conversations)
+				if (response.data.data.conversationId) {
+					this.conversationId = response.data.data.conversationId;
+				}
 				this.questions.push(aiMessage);
 			} catch (error) {
 				console.error("Failed to send message:", error);
@@ -484,6 +506,7 @@ export default {
 		margin: 0 auto;
 		width: 100%;
 		padding: 2rem;
+		overflow-x: hidden;
 		overflow-y: auto;
 
 		.empty-chat {

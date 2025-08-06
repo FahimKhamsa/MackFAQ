@@ -8,26 +8,24 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Length,
   Matches,
   Max,
   ValidateIf,
   ValidateNested,
   isArray,
-  isInt,
 } from 'class-validator';
 import { MessageTypes, conversationIdPattern } from '../api.service';
 
 export class IProjectIdentification {
-  @Type(() => Number)
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  bot_id: number;
+  bot_id: string;
 
-  @Type(() => Number)
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  project_id: number;
+  project_id?: string;
 
   @IsString()
   @IsOptional()
@@ -66,6 +64,12 @@ export class IGetCompleteDTO extends IProjectIdentification {
   // @Matches(conversationIdPattern)
   @ValidateIf((_, value) => value === '0' || !!value)
   conversationId?: string;
+
+  @IsString()
+  @IsOptional()
+  @Length(1, 355)
+  @ValidateIf((_, value) => value === '0' || !!value)
+  userId: string;
 
   @IsString()
   @IsOptional()
@@ -140,8 +144,8 @@ export class IMessage {
 }
 
 export interface IChat {
-  project_id: number;
-  assistant_id: number;
+  project_id: string;
+  assistant_id: string;
   name: string;
   id: string;
   messages: IMessage[];

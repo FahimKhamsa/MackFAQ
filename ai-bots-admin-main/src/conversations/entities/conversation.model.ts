@@ -5,8 +5,10 @@ import {
   PrimaryKey,
   Table,
   HasMany,
+  ForeignKey,
 } from 'sequelize-typescript';
 import { MessageModel } from 'src/messages/entities/message.model';
+import { ProjectModel } from 'src/projects/entities/projects.model';
 
 @Table({
   tableName: 'conversations',
@@ -27,17 +29,24 @@ export class ConversationModel extends Model<ConversationModel> {
   })
   name: string;
 
+  @ForeignKey(() => ProjectModel)
   @Column({
-    type: DataType.INTEGER,
+    type: DataType.UUID,
     defaultValue: null,
   })
-  project_id: number;
+  project_id: string;
 
   @Column({
-    type: DataType.INTEGER,
-    defaultValue: null,
+    type: DataType.UUID,
+    allowNull: false,
   })
-  assistant_id: number;
+  user_id: string;
+
+  @Column({
+    type: DataType.UUID,
+    allowNull: false,
+  })
+  assistant_id: string;
 
   @Column({
     type: DataType.TEXT,
@@ -47,21 +56,9 @@ export class ConversationModel extends Model<ConversationModel> {
 
   @Column({
     type: DataType.JSON,
-    defaultValue: null,
+    defaultValue: [],
   })
   messages: string[];
-
-  @Column({
-    type: DataType.DATE,
-    defaultValue: DataType.NOW,
-  })
-  created_at: Date;
-
-  @Column({
-    type: DataType.DATE,
-    defaultValue: DataType.NOW,
-  })
-  updated_at: Date;
 
   @HasMany(() => MessageModel, 'conversation_id')
   messageModels: MessageModel[];

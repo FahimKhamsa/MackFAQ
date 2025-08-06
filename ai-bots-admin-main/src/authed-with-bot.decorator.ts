@@ -4,12 +4,12 @@ import {
   Injectable,
   NestInterceptor,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { BotsService } from './bots/bots.service';
+import { IdentityService } from './identity/identity.service';
 
 @Injectable()
 export class AuthedWithBot implements NestInterceptor {
-  constructor(private botsService: BotsService) {}
+  constructor(private identityService: IdentityService) {}
+
   async intercept(context: ExecutionContext, next: CallHandler<any>) {
     const req = context.switchToHttp().getRequest();
 
@@ -20,38 +20,52 @@ export class AuthedWithBot implements NestInterceptor {
 
   private async injectBotId(req) {
     if (req.user) {
-      const bot = await this.botsService.getDefaultBotForUser({
-        user_id: req.user.id,
-      });
+      // Since botsService is removed, get the default assistant for the user
+      try {
+        const defaultAssistant =
+          await this.identityService.getDefaultAssistantForUser(req.user.id);
+        const botId = defaultAssistant.id;
 
-      if (req.params) {
-        req.params.bot_id = bot.id;
-        // req.params.project_id = null;
-      }
+        if (req.params) {
+          req.params.bot_id = botId;
+          // req.params.project_id = null;
+        }
 
-      if (req.query) {
-        req.query.bot_id = bot.id;
-        // req.query.project_id = null;
-      }
+        if (req.query) {
+          req.query.bot_id = botId;
+          // req.query.project_id = null;
+        }
 
-      if (req.body) {
-        req.body.bot_id = bot.id;
-        // req.body.project_id = null;
+        if (req.body) {
+          req.body.bot_id = botId;
+          // req.body.project_id = null;
+        }
+      } catch (error) {
+        console.warn('No default assistant found for user:', error.message);
+        // Continue to fallback logic below
       }
     } else {
-      // For RAG testing without authentication, use default bot_id from environment
-      const defaultBotId = 28; // Use existing bot_id from database
+      // For RAG testing without authentication, use dynamic fallback
+      try {
+        // Try to get any active assistant as fallback
+        const fallbackAssistant =
+          await this.identityService.getDefaultAssistantForUser('1'); // Use system user ID 1
+        const fallbackBotId = fallbackAssistant.id;
 
-      if (req.params && !req.params.bot_id) {
-        req.params.bot_id = defaultBotId;
-      }
+        if (req.params && !req.params.bot_id) {
+          req.params.bot_id = fallbackBotId;
+        }
 
-      if (req.query && !req.query.bot_id) {
-        req.query.bot_id = defaultBotId;
-      }
+        if (req.query && !req.query.bot_id) {
+          req.query.bot_id = fallbackBotId;
+        }
 
-      if (req.body && !req.body.bot_id) {
-        req.body.bot_id = defaultBotId;
+        if (req.body && !req.body.bot_id) {
+          req.body.bot_id = fallbackBotId;
+        }
+      } catch (error) {
+        console.warn('No fallback assistant available:', error.message);
+        // If no assistant is available, the request will fail gracefully in the handler
       }
     }
   }

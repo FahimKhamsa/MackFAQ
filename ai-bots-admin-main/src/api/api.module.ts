@@ -3,14 +3,14 @@ import { ApiService } from './api.service';
 import { ApiController } from './api.controller';
 import { GptapiModule } from 'src/gptapi/gptapi.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { BotsModule } from 'src/bots/bots.module';
 import { MessagesModule } from 'src/messages/messages.module';
-import { RasaapiModule } from 'src/rasaapi/rasaapi.module';
-import { LocalIntentsResponsesStorageModule } from 'src/local-intents-responses-storage/local-intents-responses-storage.module';
+import { ProjectsModule } from 'src/projects/projects.module';
 import { LargeFilesProcessingModule } from 'src/large-files-processing/large-files-processing.module';
 import { HttpModule } from '@nestjs/axios';
 import { OpenaiKnowledgeModule } from 'src/openai-knowledge/openai-knowledge.module';
 import { ConversationsModule } from 'src/conversations/conversations.module';
+import { DatabaseModule } from 'src/database/database.module';
+import { IdentityModule } from 'src/identity/identity.module';
 
 @Module({
   providers: [ApiService],
@@ -43,12 +43,12 @@ import { ConversationsModule } from 'src/conversations/conversations.module';
       imports: [ConfigModule, HttpModule],
       inject: [ConfigService],
     }),
-    BotsModule,
     MessagesModule,
-    RasaapiModule,
-    LocalIntentsResponsesStorageModule,
+    ProjectsModule,
     OpenaiKnowledgeModule,
     ConversationsModule,
+    DatabaseModule,
+    IdentityModule,
   ],
 })
 export class ApiModule {}

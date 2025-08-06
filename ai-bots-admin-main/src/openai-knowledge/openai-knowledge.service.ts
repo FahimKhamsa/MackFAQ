@@ -1,35 +1,48 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
-import { InjectModel } from '@nestjs/sequelize';
+import {
+  Injectable,
+  Logger,
+  HttpException,
+  HttpStatus,
+  Inject,
+} from '@nestjs/common';
+import { Sequelize } from 'sequelize-typescript';
 import { OpenAI } from 'openai';
 import { ProjectAssistantModel } from './entities/project-assistant.model';
 import { ProjectFileModel } from './entities/project-file.model';
 import { ProjectThreadModel } from './entities/project-thread.model';
-import { LocalStorageModel } from '../local-intents-responses-storage/entities/local-storage-project.model';
+import { ProjectModel } from 'src/projects/entities/projects.model';
 
 @Injectable()
 export class OpenaiKnowledgeService {
   private readonly logger = new Logger(OpenaiKnowledgeService.name);
   private openai: OpenAI;
+  private projectAssistantModel: typeof ProjectAssistantModel;
+  private projectFileModel: typeof ProjectFileModel;
+  private projectThreadModel: typeof ProjectThreadModel;
+  private projectModel: typeof ProjectModel;
 
   constructor(
-    @InjectModel(ProjectAssistantModel)
-    private projectAssistantModel: typeof ProjectAssistantModel,
-    @InjectModel(ProjectFileModel)
-    private projectFileModel: typeof ProjectFileModel,
-    @InjectModel(ProjectThreadModel)
-    private projectThreadModel: typeof ProjectThreadModel,
-    @InjectModel(LocalStorageModel)
-    private localStorageModel: typeof LocalStorageModel,
+    @Inject('SEQUELIZE')
+    private sequelize: Sequelize,
   ) {
     this.openai = new OpenAI({
       apiKey: process.env.OPEN_AI_API_KEY,
     });
+
+    this.projectAssistantModel = this.sequelize.models
+      .ProjectAssistantModel as typeof ProjectAssistantModel;
+    this.projectFileModel = this.sequelize.models
+      .ProjectFileModel as typeof ProjectFileModel;
+    this.projectThreadModel = this.sequelize.models
+      .ProjectThreadModel as typeof ProjectThreadModel;
+    this.projectModel = this.sequelize.models
+      .ProjectModel as typeof ProjectModel;
   }
 
   /**
    * Create or get existing assistant for a project
    */
-  async createOrGetAssistant(projectId: number, customInstructions?: string) {
+  async createOrGetAssistant(projectId: string, customInstructions?: string) {
     try {
       // Check if assistant already exists for this project
       const existingAssistant = await this.projectAssistantModel.findOne({
@@ -97,14 +110,16 @@ export class OpenaiKnowledgeService {
    * Upload file for knowledge retrieval
    */
   async uploadFileForRetrieval(
-    projectId: number,
+    projectId: string,
     fileBuffer: Buffer,
     filename: string,
+    userId: string,
   ) {
     try {
       // Get or create assistant
-      const { assistantId, dbId: assistantDbId } =
-        await this.createOrGetAssistant(projectId);
+      const { dbId: assistantDbId } = await this.createOrGetAssistant(
+        projectId,
+      );
 
       // Convert Buffer to File-like object for OpenAI
       const fileBlob = new File([fileBuffer], filename, {
@@ -125,6 +140,7 @@ export class OpenaiKnowledgeService {
         file_type: this.getFileExtension(filename),
         file_size: fileBuffer.length,
         status: 'uploaded',
+        user_id: userId,
       });
 
       return {
@@ -143,10 +159,11 @@ export class OpenaiKnowledgeService {
   /**
    * Create a new conversation thread
    */
-  async createThread(projectId: number, userId?: number, sessionId?: string) {
+  async createThread(projectId: string, userId?: string, sessionId?: string) {
     try {
-      const { assistantId, dbId: assistantDbId } =
-        await this.createOrGetAssistant(projectId);
+      const { dbId: assistantDbId } = await this.createOrGetAssistant(
+        projectId,
+      );
 
       // Create OpenAI thread
       const thread = await this.openai.beta.threads.create();
@@ -177,10 +194,10 @@ export class OpenaiKnowledgeService {
    * Ask a question using the knowledge base
    */
   async askQuestion(
-    projectId: number,
+    projectId: string,
     userQuery: string,
     threadId?: string,
-    userId?: number,
+    userId?: string,
     sessionId?: string,
   ) {
     try {
@@ -265,7 +282,7 @@ export class OpenaiKnowledgeService {
   /**
    * Get all files for a project
    */
-  async getProjectFiles(projectId: number) {
+  async getProjectFiles(projectId: string) {
     const assistant = await this.projectAssistantModel.findOne({
       where: { project_id: projectId, is_active: true },
     });
@@ -282,7 +299,7 @@ export class OpenaiKnowledgeService {
   /**
    * Delete a file from the knowledge base
    */
-  async deleteFile(projectId: number, fileId: string) {
+  async deleteFile(projectId: string, fileId: string) {
     try {
       // Find the file in database
       const assistant = await this.projectAssistantModel.findOne({
@@ -342,7 +359,7 @@ export class OpenaiKnowledgeService {
   /**
    * Get project assistant info
    */
-  async getProjectAssistant(projectId: number) {
+  async getProjectAssistant(projectId: string) {
     return await this.projectAssistantModel.findOne({
       where: { project_id: projectId, is_active: true },
     });
@@ -351,7 +368,7 @@ export class OpenaiKnowledgeService {
   /**
    * Update assistant instructions
    */
-  async updateAssistantInstructions(projectId: number, instructions: string) {
+  async updateAssistantInstructions(projectId: string, instructions: string) {
     try {
       const assistant = await this.projectAssistantModel.findOne({
         where: { project_id: projectId, is_active: true },
@@ -382,7 +399,7 @@ export class OpenaiKnowledgeService {
   /**
    * Train all uploaded files for a project
    */
-  async trainUploadedFiles(projectId: number) {
+  async trainUploadedFiles(projectId: string) {
     console.log(
       `[OpenaiKnowledgeService - trainUploadedFiles] Training files for project: ${projectId}`,
     );
@@ -505,7 +522,7 @@ export class OpenaiKnowledgeService {
   /**
    * Retry training failed files for a project
    */
-  async retryFailedFiles(projectId: number) {
+  async retryFailedFiles(projectId: string) {
     try {
       // Get assistant for the project
       let assistant = await this.projectAssistantModel.findOne({
@@ -707,7 +724,7 @@ export class OpenaiKnowledgeService {
   /**
    * Get files by status for a project
    */
-  async getFilesByStatus(projectId: number, status: string) {
+  async getFilesByStatus(projectId: string, status: string) {
     const assistant = await this.projectAssistantModel.findOne({
       where: { project_id: projectId, is_active: true },
     });
@@ -731,7 +748,7 @@ export class OpenaiKnowledgeService {
   /**
    * Update project files count when file status changes
    */
-  private async updateProjectFilesCount(projectId: number) {
+  private async updateProjectFilesCount(projectId: string) {
     try {
       // Get the assistant for this project
       const assistant = await this.projectAssistantModel.findOne({
@@ -752,7 +769,7 @@ export class OpenaiKnowledgeService {
       });
 
       // Update the project's files count
-      await this.localStorageModel.update(
+      await this.projectModel.update(
         { files: completedFilesCount },
         { where: { id: projectId } },
       );

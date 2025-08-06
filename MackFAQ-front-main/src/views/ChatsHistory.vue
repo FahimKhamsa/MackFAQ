@@ -306,7 +306,7 @@ Are you sure you want to upload the file?`)) {
             }
 
             try {
-                await axios.post(API_URL + '/local-intents-responses-storage/projects/update', {
+                await axios.post(API_URL + '/projects/management/update', {
                     prompt_prefix: this.project_prompt_prefix,
                     id: +this.project_id,
                     bot_id: +API_BOT_ID,

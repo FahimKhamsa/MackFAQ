@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsUUID } from 'class-validator';
 
 export class AskQuestionDto {
   @IsString()
@@ -9,8 +9,8 @@ export class AskQuestionDto {
   threadId?: string;
 
   @IsOptional()
-  @IsNumber()
-  userId?: number;
+  @IsUUID()
+  userId?: string;
 
   @IsOptional()
   @IsString()

@@ -1,8 +1,6 @@
 import {
-  BelongsTo,
   Column,
   DataType,
-  ForeignKey,
   HasMany,
   Model,
   PrimaryKey,
@@ -18,28 +16,28 @@ import { LearningSessionProjectConnection } from './learnings-sessions-project-c
 export class LearningSession extends Model<LearningSession> {
   @PrimaryKey
   @Column({
-    type: DataType.INTEGER,
-    autoIncrement: true,
+    type: DataType.UUID,
+    defaultValue: DataType.UUIDV4,
   })
-  id: number;
+  id: string;
 
   @Column({
-    type: DataType.INTEGER,
-    defaultValue: null,
+    type: DataType.UUID,
+    allowNull: false,
   })
-  creator_id: number;
+  user_id: string;
 
   @Column({
-    type: DataType.INTEGER,
-    defaultValue: null,
+    type: DataType.UUID,
+    allowNull: false,
   })
-  bot_id: number;
+  bot_id: string;
 
   @Column({
-    type: DataType.INTEGER,
-    defaultValue: null,
+    type: DataType.UUID,
+    allowNull: false,
   })
-  project_id: number;
+  project_id: string;
 
   @Column({
     type: DataType.STRING(255),

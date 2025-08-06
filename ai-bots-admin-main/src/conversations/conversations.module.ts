@@ -1,22 +1,11 @@
 import { Module } from '@nestjs/common';
-import { getModelToken } from '@nestjs/sequelize';
 import { ConversationsService } from './conversations.service';
 import { ConversationsController } from './conversations.controller';
-import { ConversationModel } from './entities/conversation.model';
-import { MessageModel } from 'src/messages/entities/message.model';
+import { DatabaseModule } from '../database/database.module';
 
 @Module({
-  providers: [
-    ConversationsService,
-    {
-      provide: getModelToken(ConversationModel),
-      useValue: ConversationModel,
-    },
-    {
-      provide: getModelToken(MessageModel),
-      useValue: MessageModel,
-    },
-  ],
+  imports: [DatabaseModule],
+  providers: [ConversationsService],
   controllers: [ConversationsController],
   exports: [ConversationsService],
 })

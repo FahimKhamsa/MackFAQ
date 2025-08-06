@@ -1,15 +1,12 @@
 import { Global, Module } from '@nestjs/common';
-import { getModelToken } from '@nestjs/sequelize';
 import { BotsController } from './bots.controller';
 import { BotsService } from './bots.service';
-import { BotModel } from './entities/bot.model';
+import { DatabaseModule } from '../database/database.module';
 
 @Module({
+  imports: [DatabaseModule],
   controllers: [BotsController],
-  providers: [
-    BotsService,
-    { provide: getModelToken(BotModel), useValue: BotModel },
-  ],
+  providers: [BotsService],
   exports: [BotsService],
 })
 @Global()

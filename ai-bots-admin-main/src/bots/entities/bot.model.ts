@@ -1,10 +1,12 @@
 import {
   Column,
   DataType,
+  ForeignKey,
   Model,
   PrimaryKey,
   Table,
 } from 'sequelize-typescript';
+import { UserModel } from 'src/users/entities/user.model';
 
 @Table({
   tableName: 'bots',
@@ -14,16 +16,17 @@ import {
 export class BotModel extends Model<BotModel> {
   @PrimaryKey
   @Column({
-    type: DataType.INTEGER,
-    autoIncrement: true,
+    type: DataType.UUID,
+    defaultValue: DataType.UUIDV4,
   })
-  id: number;
+  id: string;
 
+  @ForeignKey(() => UserModel)
   @Column({
-    type: DataType.INTEGER,
+    type: DataType.UUID,
     defaultValue: null,
   })
-  creator_id: number;
+  user_id: string;
 
   @Column({
     type: DataType.STRING(355),

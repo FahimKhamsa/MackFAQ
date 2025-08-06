@@ -5,11 +5,11 @@ import {
   Injectable,
   NestInterceptor,
 } from '@nestjs/common';
-import { LocalIntentsResponsesStorageService } from './local-intents-responses-storage/local-intents-responses-storage.service';
+import { ProjectsService } from './projects/projects.service';
 
 @Injectable()
 export class ProjecLink implements NestInterceptor {
-  constructor(private projectService: LocalIntentsResponsesStorageService) {}
+  constructor(private projectService: ProjectsService) {}
   async intercept(context: ExecutionContext, next: CallHandler<any>) {
     const req = context.switchToHttp().getRequest();
 
@@ -32,6 +32,6 @@ export class ProjecLink implements NestInterceptor {
     }
 
     req.query.project_id = project.id;
-    req.query.bot_id = project.bot_id;
+    req.query.bot_id = project.assistant_id;
   }
 }

@@ -5,39 +5,38 @@ import {
   HttpStatus,
   Injectable,
   Logger,
+  Inject,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Sequelize } from 'sequelize-typescript';
 import { GptapiService } from 'src/gptapi/gptapi.service';
 import * as crypto from 'crypto';
-import { BotsService } from 'src/bots/bots.service';
 import { MessagesService } from 'src/messages/messages.service';
 import { ConversationsService } from 'src/conversations/conversations.service';
-import { parse } from 'csv-parse';
-import {
-  IConfig,
-  ITrainingInput,
-  LocalIntentsResponsesStorageService,
-} from 'src/local-intents-responses-storage/local-intents-responses-storage.service';
+import { ProjectsService } from 'src/projects/projects.service';
 import { LargeFilesProcessingService } from 'src/large-files-processing/large-files-processing.service';
-import { LocalStorageModel } from 'src/local-intents-responses-storage/entities/local-storage-project.model';
+import { ProjectModel } from 'src/projects/entities/projects.model';
 import {
   ICreateConversationDTO,
   IMessage,
   IProjectIdentification,
   IChat,
 } from './dto/get-complete.dto';
+import { ProjectAssistantModel } from 'src/openai-knowledge/entities/project-assistant.model';
+import { IdentityService } from 'src/identity/identity.service';
+import { BotModel } from 'src/bots/entities/bot.model';
 
-class Chat {
-  public readonly project_id: any;
-  public readonly bot_id: any;
-  public name: string;
-  public readonly id: string;
-  public messages: IMessage[];
+// class Chat {
+//   public readonly project_id: any;
+//   public readonly bot_id: any;
+//   public name: string;
+//   public readonly id: string;
+//   public messages: IMessage[];
 
-  constructor(data: Chat) {
-    this;
-  }
-}
+//   constructor(data: Chat) {
+//     this;
+//   }
+// }
 
 export enum MessageTypes {
   SYSTEM_MESSAGE = 'system_message',
@@ -69,16 +68,23 @@ export class ApiService {
   } = {};
 
   private logger = new Logger(ApiService.name);
+  private projectAssistantModel: typeof ProjectAssistantModel;
+  private botModel: typeof BotModel;
 
   constructor(
+    @Inject('SEQUELIZE')
+    private sequelize: Sequelize,
     private gptapiService: GptapiService,
     private configService: ConfigService,
-    private botsService: BotsService,
     private messagesService: MessagesService,
     private conversationsService: ConversationsService,
-    private localIntentsResponsesStorageService: LocalIntentsResponsesStorageService,
+    private projectsService: ProjectsService,
     private largeFilesProcessingService: LargeFilesProcessingService,
+    private identityService: IdentityService,
   ) {
+    this.projectAssistantModel = this.sequelize.models
+      .ProjectAssistantModel as typeof ProjectAssistantModel;
+    this.botModel = this.sequelize.models.BotModel as typeof BotModel;
     this._assistantLabel = this.configService.get<string>(
       '_assistantLabel',
       '_assistantLabel',
@@ -114,7 +120,7 @@ export class ApiService {
   }
 
   public async createProject() {
-    return await this.localIntentsResponsesStorageService;
+    return await this.projectsService;
   }
 
   private async GPTMatch(
@@ -185,71 +191,69 @@ export class ApiService {
     return result;
   }
 
-  private async processLocalWithGPT(userPrompt: string, config: any) {
-    if (!config.bot_id) {
-      return null;
-    }
+  // private async processLocalWithGPT(userPrompt: string, config: any) {
+  //   if (!config.bot_id) {
+  //     return null;
+  //   }
 
-    if (!config.project_id) {
-      config.project_id = null;
-    }
+  //   if (!config.project_id) {
+  //     config.project_id = null;
+  //   }
 
-    let result: any = null;
+  //   let result: any = null;
 
-    const intents =
-      await this.localIntentsResponsesStorageService.getAllIntents({
-        bot_id: config.bot_id,
-        currentUserId: null,
-        project_id: config.project_id,
-      });
+  //   const intents = await this.projectsService.getAllIntents({
+  //     bot_id: config.bot_id,
+  //     currentUserId: null,
+  //     project_id: config.project_id,
+  //   });
 
-    if (intents.length === 0) {
-      return null;
-    }
+  //   if (intents.length === 0) {
+  //     return null;
+  //   }
 
-    const matched1 = await this.GPTMatch(
-      userPrompt,
-      intents.map((v) => v.dataValues),
-      10,
-      { ...config, messageType: 1 },
-    );
-    const logForFirstStage = matched1
-      .map((v) => '--------\n\n' + v.id + ': ' + v.text + '\n\n--------')
-      .join('\n');
+  //   const matched1 = await this.GPTMatch(
+  //     userPrompt,
+  //     intents.map((v) => v.dataValues),
+  //     10,
+  //     { ...config, messageType: 1 },
+  //   );
+  //   const logForFirstStage = matched1
+  //     .map((v) => '--------\n\n' + v.id + ': ' + v.text + '\n\n--------')
+  //     .join('\n');
 
-    this.logger.log('First stage ', userPrompt, logForFirstStage);
+  //   this.logger.log('First stage ', userPrompt, logForFirstStage);
 
-    if (matched1.length === 0) {
-      return null;
-    }
+  //   if (matched1.length === 0) {
+  //     return null;
+  //   }
 
-    const matched2 =
-      matched1.length === 1
-        ? matched1
-        : await this.GPTMatch(userPrompt, matched1, 1, {
-            ...config,
-            messageType: 2,
-          });
-    const logForSecondStage = matched2
-      .map((v) => v.id + ': ' + v.text)
-      .join('\n');
-    this.logger.log('Second stage', userPrompt, logForSecondStage, matched2);
+  //   const matched2 =
+  //     matched1.length === 1
+  //       ? matched1
+  //       : await this.GPTMatch(userPrompt, matched1, 1, {
+  //           ...config,
+  //           messageType: 2,
+  //         });
+  //   const logForSecondStage = matched2
+  //     .map((v) => v.id + ': ' + v.text)
+  //     .join('\n');
+  //   this.logger.log('Second stage', userPrompt, logForSecondStage, matched2);
 
-    if (matched2.length === 0) {
-      return null;
-    }
+  //   if (matched2.length === 0) {
+  //     return null;
+  //   }
 
-    const response =
-      await this.localIntentsResponsesStorageService.getResponseByIntentId(
-        matched2[0].id,
-      );
-    result = {
-      textAnswer: response.text,
-      question: matched2[0].text,
-    };
+  //   const response = await this.projectsService.getResponseByIntentId(
+  //     matched2[0].id,
+  //   );
+  //   result = {
+  //     textAnswer: response.text,
+  //     question: matched2[0].text,
+  //   };
 
-    return result;
-  }
+  //   return result;
+  // }
 
   private async processFaQWithGPT(
     userPrompt: string,
@@ -319,171 +323,176 @@ export class ApiService {
     return savedLearning.map((sl) => sl.dataValues);
   }
 
-  public async deleteImportedKnowledge(id: number) {
+  public async deleteImportedKnowledge(id: string) {
     return await this.largeFilesProcessingService.deleteDoc(id);
   }
 
-  public async deepFaq(
-    inputPrompt: string,
-    conversationId: string = null,
-    config: IConfig,
-    conversationName?: string,
-    regenerateAnswerFrom: string = null,
-    messageTs: string = null,
-    forceDisableDocsData = false,
-    filesToUse = null,
-  ) {
-    if (!conversationId) {
-      conversationId = crypto
-        .createHash('md5')
-        .update(crypto.randomBytes(100))
-        .update(Date.now().toString())
-        .digest('base64url');
-      // conversationId = crypto.randomBytes(20).toString('base64url') + crypto.randomUUID() + '-' + Buffer.from((+new Date()).toString()).toString('base64url');
-    }
-    this.validateConversationId(conversationId);
+  // public async deepFaq(
+  //   inputPrompt: string,
+  //   conversationId: string = null,
+  //   config: IConfig,
+  //   conversationName?: string,
+  //   regenerateAnswerFrom: string = null,
+  //   messageTs: string = null,
+  //   forceDisableDocsData = false,
+  //   filesToUse = null,
+  // ) {
+  //   if (!conversationId) {
+  //     conversationId = crypto
+  //       .createHash('md5')
+  //       .update(crypto.randomBytes(100))
+  //       .update(Date.now().toString())
+  //       .digest('base64url');
+  //     // conversationId = crypto.randomBytes(20).toString('base64url') + crypto.randomUUID() + '-' + Buffer.from((+new Date()).toString()).toString('base64url');
+  //   }
+  //   this.validateConversationId(conversationId);
 
-    let aiPrefix = null;
-    let humanPrefix = null;
-    let promptPrefix = null;
+  //   let aiPrefix = null;
+  //   // let humanPrefix = null;
+  //   let promptPrefix = null;
 
-    const chatData = await this.getConversationHistory(conversationId);
+  //   const chatData = await this.getConversationHistory(conversationId);
 
-    if (chatData) {
-      if (!config.bot_id) {
-        config.bot_id = chatData.assistant_id;
-      }
-      if (!config.project_id) {
-        config.project_id = chatData.project_id;
-      }
-      if (!conversationName) {
-        conversationName = chatData.name;
-      }
-    }
+  //   if (chatData) {
+  //     if (!config.bot_id) {
+  //       config.bot_id = chatData.assistant_id;
+  //     }
+  //     if (!config.project_id) {
+  //       config.project_id = chatData.project_id;
+  //     }
+  //     if (!conversationName) {
+  //       conversationName = chatData.name;
+  //     }
+  //   }
 
-    if (config && config.bot_id) {
-      const bot = await this.botsService.getBot(config.bot_id);
-      if (bot) {
-        aiPrefix = bot.bot_name_label;
-        humanPrefix = bot.user_name_label;
-        promptPrefix = bot.prompt_prefix;
-        if (!+config.project_id) {
-          const project = await this.defaultProject(bot.id);
-          config.project_id = project.id;
-        }
-      }
+  //   if (config && config.project_id && config.bot_id) {
+  //     const bot = await this.projectAssistantModel.findOne({
+  //       where: {
+  //         id: config.bot_id,
+  //         project_id: config.project_id,
+  //         is_active: true,
+  //       },
+  //     });
+  //     if (bot) {
+  //       aiPrefix = bot.name;
+  //       // humanPrefix = bot.user_name_label;
+  //       // promptPrefix = bot.prompt_prefix;
+  //       if (!config.project_id) {
+  //         const project = await this.defaultProject({
+  //           bot_id: config.bot_id,
+  //         });
+  //         config.project_id = project.id;
+  //       }
+  //     }
 
-      if (!bot) {
-        delete config.bot_id;
-      }
-    }
+  //     if (!bot) {
+  //       delete config.bot_id;
+  //     }
+  //   }
 
-    if (config && config.project_id) {
-      const project =
-        await this.localIntentsResponsesStorageService.getProjectById(
-          config.project_id,
-        );
-      if (project) {
-        promptPrefix = project.prompt_prefix || promptPrefix;
-      }
+  //   if (config && config.project_id) {
+  //     const project = await this.projectsService.getProjectById(
+  //       config.project_id,
+  //     );
+  //     if (project) {
+  //       promptPrefix = project.prompt_prefix || promptPrefix;
+  //     }
 
-      if (!project) {
-        delete config.project_id;
-      }
-    }
+  //     if (!project) {
+  //       delete config.project_id;
+  //     }
+  //   }
 
-    if (config && config.forcePromptPrefix) {
-      promptPrefix = config.forcePromptPrefix;
-    }
+  //   if (config && config.forcePromptPrefix) {
+  //     promptPrefix = config.forcePromptPrefix;
+  //   }
 
-    let promptBody = chatData.messages;
+  //   let promptBody = chatData.messages;
 
-    if (regenerateAnswerFrom) {
-      let messageId = promptBody.findIndex((r) => {
-        return r.messageId === regenerateAnswerFrom;
-      });
+  //   if (regenerateAnswerFrom) {
+  //     let messageId = promptBody.findIndex((r) => {
+  //       return r.messageId === regenerateAnswerFrom;
+  //     });
 
-      if (messageId === -1) {
-        messageId = promptBody.length;
+  //     if (messageId === -1) {
+  //       messageId = promptBody.length;
 
-        if (!inputPrompt) {
-          throw new Error('Message is not found');
-        }
-      }
+  //       if (!inputPrompt) {
+  //         throw new Error('Message is not found');
+  //       }
+  //     }
 
-      if (!inputPrompt) {
-        inputPrompt = promptBody[messageId].message;
-      }
+  //     if (!inputPrompt) {
+  //       inputPrompt = promptBody[messageId].message;
+  //     }
 
-      if (!messageTs) {
-        messageTs = promptBody[messageId].createdAt;
-      }
+  //     if (!messageTs) {
+  //       messageTs = promptBody[messageId].createdAt;
+  //     }
 
-      promptBody = promptBody.slice(0, messageId);
-    }
+  //     promptBody = promptBody.slice(0, messageId);
+  //   }
 
-    const docsInput = await this.localIntentsResponsesStorageService.getRawData(
-      config,
-    );
-    const compiledDoc =
-      await this.largeFilesProcessingService.createLearningInput(
-        docsInput.map((v) => ({
-          questions: v.questions.map((r) => r.text),
-          answer: v.answer.text,
-        })),
-        config.bot_id + '-' + config.project_id,
-      );
+  //   const docsInput = await this.projectsService.getRawData(config);
+  //   const compiledDoc =
+  //     await this.largeFilesProcessingService.createLearningInput(
+  //       docsInput.map((v) => ({
+  //         questions: v.questions.map((r) => r.text),
+  //         answer: v.answer.text,
+  //       })),
+  //       config.bot_id + '-' + config.project_id,
+  //     );
 
-    // const docs = [compiledDoc];
+  //   // const docs = [compiledDoc];
 
-    let docs = [];
+  //   let docs = [];
 
-    if (forceDisableDocsData === false) {
-      docs = await this.largeFilesProcessingService.getDocsIds(
-        config,
-        filesToUse,
-      );
-    }
+  //   if (forceDisableDocsData === false) {
+  //     docs = await this.largeFilesProcessingService.getDocsIds(
+  //       config,
+  //       filesToUse,
+  //     );
+  //   }
 
-    return new Promise((resolve, reject) => {
-      const abortController = new AbortController();
-      abortController.signal.addEventListener('abort', () => reject());
+  //   return new Promise((resolve, reject) => {
+  //     const abortController = new AbortController();
+  //     abortController.signal.addEventListener('abort', () => reject());
 
-      this.startProcessingConversation(conversationId, abortController);
+  //     this.startProcessingConversation(conversationId, abortController);
 
-      resolve(
-        this.largeFilesProcessingService
-          .processWithConversationChain(inputPrompt, promptBody, docs, {
-            abortController: abortController,
-            aiPrefix: aiPrefix,
-            humanPrefix: humanPrefix,
-            prompt: promptPrefix,
-          })
-          .then((controller) => controller.getAnswerFromChain())
-          .then((textAnswer) => {
-            promptBody.push({
-              type: MessageTypes.USER_MESSAGE,
-              message: inputPrompt,
-              messageId: this.newMessageId(),
-              createdAt: messageTs,
-            });
-            promptBody.push({
-              type: MessageTypes.AI_MESSAGE,
-              message: textAnswer,
-              messageId: this.newMessageId(),
-            });
+  //     resolve(
+  //       this.largeFilesProcessingService
+  //         .processWithConversationChain(inputPrompt, promptBody, docs, {
+  //           abortController: abortController,
+  //           aiPrefix: aiPrefix,
+  //           humanPrefix: humanPrefix,
+  //           prompt: promptPrefix,
+  //         })
+  //         .then((controller) => controller.getAnswerFromChain())
+  //         .then((textAnswer) => {
+  //           promptBody.push({
+  //             type: MessageTypes.USER_MESSAGE,
+  //             message: inputPrompt,
+  //             messageId: this.newMessageId(),
+  //             createdAt: messageTs,
+  //           });
+  //           promptBody.push({
+  //             type: MessageTypes.AI_MESSAGE,
+  //             message: textAnswer,
+  //             messageId: this.newMessageId(),
+  //           });
 
-            return this.savePrompt(promptBody, conversationId, {
-              ...config,
-              name: conversationName ?? null,
-            }).then(() => {
-              this.stopProcessingConversation(conversationId);
-              return { answer: textAnswer, conversationId };
-            });
-          }),
-      );
-    });
-  }
+  //           return this.savePrompt(promptBody, conversationId, {
+  //             ...config,
+  //             name: conversationName ?? null,
+  //           }).then(() => {
+  //             this.stopProcessingConversation(conversationId);
+  //             return { answer: textAnswer, conversationId };
+  //           });
+  //         }),
+  //     );
+  //   });
+  // }
 
   public async createConversation(
     conversationId: string = null,
@@ -539,8 +548,8 @@ export class ApiService {
     userPrompt: string,
     conversationId: string = null,
     params?: {
-      bot_id: number;
-      project_id?: number;
+      bot_id: string;
+      project_id?: string;
       translate_to_language?: string;
     },
   ) {
@@ -549,6 +558,7 @@ export class ApiService {
     }
 
     const resultData: any = {};
+    let project: ProjectModel = null;
 
     const config = {
       _userLabel: this._userLabel,
@@ -569,29 +579,28 @@ export class ApiService {
       translate_to_language: null,
     };
 
-    let project: LocalStorageModel = null;
-
     if (params && params.bot_id) {
-      const bot = await this.botsService.getBot(params.bot_id);
+      const bot = await this.botModel.findByPk(params.bot_id);
 
       if (bot) {
-        if (!+params.project_id) {
-          params.project_id = (await this.defaultProject(bot.id)).id;
+        if (!params.project_id) {
+          params.project_id = (
+            await this.defaultProject({ bot_id: bot.id, user_id: bot.user_id })
+          ).id;
         }
 
-        project = await this.localIntentsResponsesStorageService.getProjectById(
+        project = await this.projectsService.getProjectById(params.project_id);
+
+        const user = await this.identityService.getUserByProjectId(
           params.project_id,
         );
 
-        config._userLabel = bot.user_name_label || this._userLabel;
-        config._assistantLabel = bot.bot_name_label || this._assistantLabel;
-        config._promptPrefix =
-          (bot.prompt_prefix || this._promptPrefix) +
-          '\n' +
-          (project?.prompt_prefix || '');
+        config._userLabel = user.username || this._userLabel;
+        config._assistantLabel = this._assistantLabel;
+        config._promptPrefix = project?.prompt_prefix || '';
         config._useLocal = false;
         config._useLocalWithGPT = false;
-        config._answerPrePromptPrefix = bot.prompt_answer_pre_prefix;
+        config._answerPrePromptPrefix = project?.prompt_prefix || '';
       }
 
       const langs = {
@@ -749,147 +758,150 @@ export class ApiService {
     this.deleteHistory(conversationId);
   }
 
-  private formatRawLinesInput(input: string): ITrainingInput[] {
-    return input
-      .replace('\r', '')
-      .split('\n\n')
-      .map((lines) => {
-        let splitted = lines.split('\n');
-        if (splitted.length >= 1) {
-          const delimiter = splitted[splitted.length - 1].lastIndexOf('? :');
-          if (delimiter !== -1) {
-            splitted = [
-              ...splitted.slice(0, -1),
-              splitted[splitted.length - 1].substring(0, delimiter) + '?',
-              splitted[splitted.length - 1].substring(delimiter + '? :'.length),
-            ];
-          }
-        }
-        if (splitted.length < 2) {
-          throw new Error('Input format is incorrect');
-        }
-        return {
-          questions: splitted
-            .slice(0, splitted.length - 1)
-            .map((r) =>
-              (r + ' ')
-                .split('? ')
-                .map((r) => r.replace(/^\s+/, '').replace(/\s+$/, '')),
-            )
-            .flat()
-            .filter((r) => !!r)
-            .map((r) => r + '?'),
-          answer: splitted[splitted.length - 1],
-        };
-      });
-  }
+  // private formatRawLinesInput(input: string): ITrainingInput[] {
+  //   return input
+  //     .replace('\r', '')
+  //     .split('\n\n')
+  //     .map((lines) => {
+  //       let splitted = lines.split('\n');
+  //       if (splitted.length >= 1) {
+  //         const delimiter = splitted[splitted.length - 1].lastIndexOf('? :');
+  //         if (delimiter !== -1) {
+  //           splitted = [
+  //             ...splitted.slice(0, -1),
+  //             splitted[splitted.length - 1].substring(0, delimiter) + '?',
+  //             splitted[splitted.length - 1].substring(delimiter + '? :'.length),
+  //           ];
+  //         }
+  //       }
+  //       if (splitted.length < 2) {
+  //         throw new Error('Input format is incorrect');
+  //       }
+  //       return {
+  //         questions: splitted
+  //           .slice(0, splitted.length - 1)
+  //           .map((r) =>
+  //             (r + ' ')
+  //               .split('? ')
+  //               .map((r) => r.replace(/^\s+/, '').replace(/\s+$/, '')),
+  //           )
+  //           .flat()
+  //           .filter((r) => !!r)
+  //           .map((r) => r + '?'),
+  //         answer: splitted[splitted.length - 1],
+  //       };
+  //     });
+  // }
 
-  private async parseCsv(trainCsv: Buffer | string) {
-    let parsedRows = await new Promise<ITrainingInput[]>((resolve, reject) => {
-      const result: ITrainingInput[] = [];
-      parse(trainCsv, { delimiter: ',', from_line: 1 })
-        .on('data', (row) => {
-          row[1] = row[1].replace(/^\s+/, '').replace(/\s+$/, '');
-          result.push({
-            questions: (row[0] + ' ')
-              .split('? ')
-              .map((r) => r.replace(/^\s+/, '').replace(/\s+$/, ''))
-              .filter((r) => !!r)
-              .map((r) => r + '?'),
-            answer: row[1],
-          });
-        })
-        .on('end', () => {
-          resolve(result);
-        })
-        .on('error', (error) => {
-          reject(error);
-        });
-    });
+  // private async parseCsv(trainCsv: Buffer | string) {
+  //   let parsedRows = await new Promise<ITrainingInput[]>((resolve, reject) => {
+  //     const result: ITrainingInput[] = [];
+  //     parse(trainCsv, { delimiter: ',', from_line: 1 })
+  //       .on('data', (row) => {
+  //         row[1] = row[1].replace(/^\s+/, '').replace(/\s+$/, '');
+  //         result.push({
+  //           questions: (row[0] + ' ')
+  //             .split('? ')
+  //             .map((r) => r.replace(/^\s+/, '').replace(/\s+$/, ''))
+  //             .filter((r) => !!r)
+  //             .map((r) => r + '?'),
+  //           answer: row[1],
+  //         });
+  //       })
+  //       .on('end', () => {
+  //         resolve(result);
+  //       })
+  //       .on('error', (error) => {
+  //         reject(error);
+  //       });
+  //   });
 
-    let lastEmptyAnswer = null;
-    let lastWithQuetions = null;
+  //   let lastEmptyAnswer = null;
+  //   let lastWithQuetions = null;
 
-    for (const i in parsedRows) {
-      if (parsedRows[i].questions.length) {
-        lastWithQuetions = i;
-      }
+  //   for (const i in parsedRows) {
+  //     if (parsedRows[i].questions.length) {
+  //       lastWithQuetions = i;
+  //     }
 
-      if (!parsedRows[i].answer) {
-        lastEmptyAnswer = i;
-        continue;
-      }
+  //     if (!parsedRows[i].answer) {
+  //       lastEmptyAnswer = i;
+  //       continue;
+  //     }
 
-      if (!parsedRows[i].questions.length) {
-        parsedRows[lastWithQuetions].answer += '\n' + parsedRows[i].answer;
-      }
+  //     if (!parsedRows[i].questions.length) {
+  //       parsedRows[lastWithQuetions].answer += '\n' + parsedRows[i].answer;
+  //     }
 
-      if (lastEmptyAnswer === null || parsedRows[i].questions.length) {
-        lastEmptyAnswer = null;
-        continue;
-      }
+  //     if (lastEmptyAnswer === null || parsedRows[i].questions.length) {
+  //       lastEmptyAnswer = null;
+  //       continue;
+  //     }
 
-      parsedRows[lastEmptyAnswer].answer = parsedRows[i].answer;
-      lastEmptyAnswer = null;
-    }
+  //     parsedRows[lastEmptyAnswer].answer = parsedRows[i].answer;
+  //     lastEmptyAnswer = null;
+  //   }
 
-    parsedRows = parsedRows
-      .map((r) => ({
-        questions: r.questions.map((v) => v.trim()).filter((v) => !!v),
-        answer: r.answer.trim(),
-      }))
-      .filter((r) => r.questions.length && r.answer);
+  //   parsedRows = parsedRows
+  //     .map((r) => ({
+  //       questions: r.questions.map((v) => v.trim()).filter((v) => !!v),
+  //       answer: r.answer.trim(),
+  //     }))
+  //     .filter((r) => r.questions.length && r.answer);
 
-    return parsedRows;
-  }
+  //   return parsedRows;
+  // }
 
-  public async defaultProject(bot_id: number) {
-    const project =
-      await this.localIntentsResponsesStorageService.defaultProject(bot_id);
+  public async defaultProject(params: { bot_id: string; user_id: string }) {
+    const project = await this.projectsService.defaultProject(
+      params.bot_id,
+      params.user_id,
+    );
     return project;
   }
 
-  public async deleteAllIntents(bot_id: number, project_id: number = null) {
-    return await this.localIntentsResponsesStorageService.clearProjectIntents(
-      bot_id,
-      project_id ?? (await this.defaultProject(bot_id)).id,
-    );
-  }
+  // public async deleteAllIntents(bot_id: string, project_id: string = null) {
+  //   return await this.projectsService.clearProjectIntents(
+  //     bot_id,
+  //     project_id ?? (await this.defaultProject(bot_id)).id,
+  //   );
+  // }
 
   public async uploadFileOnly(
     file: { name: string; content: Buffer; mimetype: string },
-    params: { bot_id: number; project_id?: number },
+    params: { bot_id: string; project_id?: string },
   ) {
     console.log('Upload file only', params);
     if (params.project_id) {
-      const project =
-        await this.localIntentsResponsesStorageService.getProjectById(
-          params.project_id,
-        );
+      const project = await this.projectsService.getProjectById(
+        params.project_id,
+      );
       if (!project) {
         throw new BadRequestException('Project is not found');
       }
     }
+    const userId = await this.identityService.getUserIdByProjectId(
+      params.project_id,
+    );
     return await this.largeFilesProcessingService.uploadFileOnly(file, {
       ...params,
       project_id: params.project_id ?? null,
-      creator_id: 0,
+      user_id: userId,
     });
   }
 
   public async trainPendingFiles(params: {
-    bot_id: number;
-    project_id?: number;
+    bot_id: string;
+    project_id?: string;
   }) {
     console.log('Train pending files', params);
     if (!params.project_id) {
       throw new BadRequestException('Project ID is required');
     }
 
-    const project =
-      await this.localIntentsResponsesStorageService.getProjectById(
-        params.project_id,
-      );
+    const project = await this.projectsService.getProjectById(
+      params.project_id,
+    );
     if (!project) {
       throw new BadRequestException('Project is not found');
     }
@@ -901,8 +913,8 @@ export class ApiService {
   }
 
   public async getPendingFiles(params: {
-    bot_id: number;
-    project_id?: number;
+    bot_id: string;
+    project_id?: string;
   }) {
     console.log('Get pending files', params);
     if (!params.project_id) {
@@ -917,48 +929,49 @@ export class ApiService {
 
   public async trainWithFile(
     file: { name: string; content: Buffer; mimetype: string },
-    params: { bot_id: number; project_id?: number },
+    params: { bot_id: string; project_id?: string },
   ) {
     console.log('Train with file', params);
     if (params.project_id) {
-      const project =
-        await this.localIntentsResponsesStorageService.getProjectById(
-          params.project_id,
-        );
+      const project = await this.projectsService.getProjectById(
+        params.project_id,
+      );
       console.log('Project', project);
-      console.log('Project Bot id', project.bot_id);
+      console.log('Project Assistant id', project.assistant_id);
       console.log('Params Bot id', params.bot_id);
       if (!project) {
         throw new BadRequestException('Project is not found');
       }
     }
+    const userId = await this.identityService.getUserIdByProjectId(
+      params.project_id,
+    );
     await this.largeFilesProcessingService.learnProviderWithFile(
       'private-api',
       file,
-      { ...params, project_id: params.project_id ?? null, creator_id: 0 },
+      { ...params, project_id: params.project_id ?? null, user_id: userId },
     );
   }
 
   public async connectLearnedFileToProject(
     payload: {
-      project_id: number;
-      learning_session_id: number;
-      bot_id?: number;
+      project_id: string;
+      learning_session_id: string;
+      bot_id?: string;
     },
     is_connected: boolean,
   ) {
-    const project =
-      await this.localIntentsResponsesStorageService.getProjectById(
-        payload.project_id,
-      );
+    const project = await this.projectsService.getProjectById(
+      payload.project_id,
+    );
     const file = await this.largeFilesProcessingService.getLearningSessionById(
       payload.learning_session_id,
     );
     if (
       !project ||
       !file ||
-      project.bot_id !== file.bot_id ||
-      (payload.bot_id && payload.bot_id !== project.bot_id)
+      project.assistant_id !== file.bot_id ||
+      (payload.bot_id && payload.bot_id !== project.assistant_id)
     ) {
       throw new BadRequestException('Project and/or file are not found');
     }
@@ -972,102 +985,100 @@ export class ApiService {
     );
   }
 
-  public async getAllFiles(bot_id: number) {
+  public async getAllFiles(bot_id: string) {
     return this.largeFilesProcessingService.getAllDocs(bot_id);
   }
 
-  public async trainModel(
-    trainCsv: Buffer | string,
-    params: {
-      bot_id: number;
-      project_id?: number;
-      mode: 'csv' | 'raw-lines' | 'xlsx';
-    },
-  ) {
-    const bot = await this.botsService.getBot(params.bot_id);
+  // public async trainModel(
+  //   trainCsv: Buffer | string,
+  //   params: {
+  //     bot_id: number;
+  //     project_id?: number;
+  //     mode: 'csv' | 'raw-lines' | 'xlsx';
+  //   },
+  // ) {
+  //   const bot = await this.botsService.getBot(params.bot_id);
 
-    if (!+params.project_id) {
-      params.project_id = (await this.defaultProject(params.bot_id)).id;
-    }
+  //   if (!+params.project_id) {
+  //     params.project_id = (await this.defaultProject(params.bot_id)).id;
+  //   }
 
-    const dataInput: ITrainingInput | {} = await new Promise(
-      (resolve, reject) => {
-        const result: ITrainingInput[] = [];
-        if (params.mode === 'csv') {
-          resolve(this.parseCsv(trainCsv));
-        }
+  //   const dataInput: ITrainingInput | {} = await new Promise(
+  //     (resolve, reject) => {
+  //       const result: ITrainingInput[] = [];
+  //       if (params.mode === 'csv') {
+  //         resolve(this.parseCsv(trainCsv));
+  //       }
 
-        if (params.mode === 'xlsx' && Buffer.isBuffer(trainCsv)) {
-          // resolve(readXlsxFile(trainCsv, { })
-          //     .then(rows => {
-          //         return rows.map(row => {
-          //             return {
-          //                 questions: (row[0] + ' ').split('? ').filter(r => !!r).map(r => r.replace(/\s+$/, '') + '?'),
-          //                 answer: row[1],
-          //             }
-          //         })
-          //     })
-          //     .catch(error => reject(error))
-          // )
-        }
+  //       if (params.mode === 'xlsx' && Buffer.isBuffer(trainCsv)) {
+  //         // resolve(readXlsxFile(trainCsv, { })
+  //         //     .then(rows => {
+  //         //         return rows.map(row => {
+  //         //             return {
+  //         //                 questions: (row[0] + ' ').split('? ').filter(r => !!r).map(r => r.replace(/\s+$/, '') + '?'),
+  //         //                 answer: row[1],
+  //         //             }
+  //         //         })
+  //         //     })
+  //         //     .catch(error => reject(error))
+  //         // )
+  //       }
 
-        if (params.mode === 'raw-lines') {
-          try {
-            return resolve(
-              this.formatRawLinesInput(trainCsv.toString('utf-8')),
-            );
-          } catch (error) {
-            reject(error);
-          }
-        }
+  //       if (params.mode === 'raw-lines') {
+  //         try {
+  //           return resolve(
+  //             this.formatRawLinesInput(trainCsv.toString('utf-8')),
+  //           );
+  //         } catch (error) {
+  //           reject(error);
+  //         }
+  //       }
 
-        reject('Type is unsupported!');
-      },
-    ).catch((error) => {
-      console.log(error);
-      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    });
+  //       reject('Type is unsupported!');
+  //     },
+  //   ).catch((error) => {
+  //     console.log(error);
+  //     throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+  //   });
 
-    if (!('length' in dataInput) || dataInput.length === 0) {
-      throw new HttpException('Empty data', HttpStatus.BAD_REQUEST);
-    }
+  //   if (!('length' in dataInput) || dataInput.length === 0) {
+  //     throw new HttpException('Empty data', HttpStatus.BAD_REQUEST);
+  //   }
 
-    const _dataInput = dataInput as unknown as any;
+  //   const _dataInput = dataInput as unknown as any;
 
-    this.logger.warn(JSON.stringify(_dataInput, undefined, 4));
+  //   this.logger.warn(JSON.stringify(_dataInput, undefined, 4));
 
-    // const trainResult = await this.localIntentsResponsesStorageService.addIntentsWithResponses(_dataInput, { bot_id: bot.id, currentUserId: null });
+  //   // const trainResult = await this.projectsService.addIntentsWithResponses(_dataInput, { bot_id: bot.id, currentUserId: null });
 
-    const trainResult =
-      await this.localIntentsResponsesStorageService.addRawData(_dataInput, {
-        bot_id: bot.id,
-        currentUserId: null,
-        project_id: params.project_id,
-      });
-    // const trainingData = await this.localIntentsResponsesStorageService.getAllIntents({ bot_id: bot.id, currentUserId: null });
+  //   const trainResult = await this.projectsService.addRawData(_dataInput, {
+  //     bot_id: bot.id,
+  //     currentUserId: null,
+  //     project_id: params.project_id,
+  //   });
+  //   // const trainingData = await this.projectsService.getAllIntents({ bot_id: bot.id, currentUserId: null });
 
-    // const { modelName } = await this.rasaapiService.trainAndChangeModel(trainingData, {
-    //     rasa_host_url: bot.exists_responses_provider_url,
-    //     model_name: null,
-    // });
+  //   // const { modelName } = await this.rasaapiService.trainAndChangeModel(trainingData, {
+  //   //     rasa_host_url: bot.exists_responses_provider_url,
+  //   //     model_name: null,
+  //   // });
 
-    // await bot.update({ model_name: modelName });
+  //   // await bot.update({ model_name: modelName });
 
-    const project =
-      await this.localIntentsResponsesStorageService.getProjectById(
-        params.project_id,
-      );
+  //   const project = await this.projectsService.getProjectById(
+  //     params.project_id,
+  //   );
 
-    if (!project.use_deep_faq) {
-      project.use_deep_faq = true;
-      await project.save();
-    }
+  //   if (!project.use_deep_faq) {
+  //     project.use_deep_faq = true;
+  //     await project.save();
+  //   }
 
-    return {
-      rows: _dataInput,
-      processed: trainResult,
-    };
-  }
+  //   return {
+  //     rows: _dataInput,
+  //     processed: trainResult,
+  //   };
+  // }
 
   private translateToGPT4(prompt: IMessage[]) {
     const result: {
@@ -1472,8 +1483,8 @@ export class ApiService {
   }
 
   public async getListOfConversationIds(config: {
-    project_id?: number;
-    bot_id?: number;
+    project_id?: string;
+    bot_id?: string;
   }) {
     return await this.conversationsService.getConversationsList(
       config.project_id,
@@ -1483,7 +1494,7 @@ export class ApiService {
   private async savePrompt(
     promptBody: IMessage[],
     conversationId: string,
-    config: { project_id?: number; bot_id?: number; name?: string },
+    config: { project_id?: string; bot_id?: string; name?: string },
   ) {
     const messagesList = promptBody.map((m) => this.formatMessage(m));
     const messages_slug = await this.generateConversationMessagesSlug(

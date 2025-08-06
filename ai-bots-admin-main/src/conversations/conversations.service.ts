@@ -1,26 +1,32 @@
-import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/sequelize';
+import { Injectable, Inject } from '@nestjs/common';
+import { Sequelize } from 'sequelize-typescript';
 import { ConversationModel } from './entities/conversation.model';
 import { MessageModel } from 'src/messages/entities/message.model';
 import { MessageTypes } from 'src/api/api.service';
 import { IMessage, IChat } from 'src/api/dto/get-complete.dto';
-import { Op } from 'sequelize';
 
 @Injectable()
 export class ConversationsService {
+  private conversationModel: typeof ConversationModel;
+  private messageModel: typeof MessageModel;
+
   constructor(
-    @InjectModel(ConversationModel)
-    private conversationModel: typeof ConversationModel,
-    @InjectModel(MessageModel)
-    private messageModel: typeof MessageModel,
-  ) {}
+    @Inject('SEQUELIZE')
+    private sequelize: Sequelize,
+  ) {
+    this.conversationModel = this.sequelize.models
+      .ConversationModel as typeof ConversationModel;
+    this.messageModel = this.sequelize.models
+      .MessageModel as typeof MessageModel;
+  }
 
   async createConversation(
     conversationId: string,
     messagesToSave: IMessage[],
     config: {
-      project_id?: number;
-      assistant_id?: number;
+      project_id?: string;
+      assistant_id?: string;
+      user_id?: string;
       name?: string;
       messages_slug?: string;
     },
@@ -30,6 +36,7 @@ export class ConversationsService {
       id: conversationId,
       name: config.name || conversationId,
       project_id: config.project_id || null,
+      user_id: config.user_id || null,
       assistant_id: config.assistant_id || null,
       messages_slug: config.messages_slug || null,
       messages: [],
@@ -47,10 +54,10 @@ export class ConversationsService {
         text: messageData.message,
         previous_message_id: previousMessageId,
         next_message_id: null,
-        created_at: messageData.createdAt
+        createdAt: messageData.createdAt
           ? new Date(messageData.createdAt)
           : new Date(),
-        updated_at: new Date(),
+        updatedAt: new Date(),
       });
 
       // Update previous message's next_message_id
@@ -77,7 +84,7 @@ export class ConversationsService {
         {
           model: MessageModel,
           as: 'messageModels',
-          order: [['created_at', 'ASC']],
+          order: [['createdAt', 'ASC']],
         },
       ],
     });
@@ -98,7 +105,7 @@ export class ConversationsService {
       message: msg.text,
       messageId: msg.id,
       previousMessageId: msg.previous_message_id,
-      createdAt: msg.created_at.toISOString(),
+      createdAt: msg.createdAt.toISOString(),
     }));
 
     return {
@@ -108,12 +115,12 @@ export class ConversationsService {
       id: conversation.id,
       messages,
       messages_slug: conversation.messages_slug || '',
-      created_at: conversation.created_at,
-      updated_at: conversation.updated_at,
+      created_at: conversation.createdAt,
+      updated_at: conversation.updatedAt,
     };
   }
 
-  async getConversationsList(projectId: number): Promise<{
+  async getConversationsList(projectId: string): Promise<{
     [conversationId: string]: {
       id: string;
       name: string;
@@ -143,8 +150,8 @@ export class ConversationsService {
     conversationId: string,
     messagesToSave: IMessage[],
     config: {
-      project_id?: number;
-      assistant_id?: number;
+      project_id?: string;
+      assistant_id?: string;
       name?: string;
       messages_slug?: string;
     },
@@ -159,7 +166,7 @@ export class ConversationsService {
     // Get the last message to link new messages
     const lastMessage = await this.messageModel.findOne({
       where: { conversation_id: conversationId },
-      order: [['created_at', 'DESC']],
+      order: [['createdAt', 'DESC']],
     });
 
     let previousMessageId = lastMessage?.id || null;
@@ -173,10 +180,10 @@ export class ConversationsService {
         text: messageData.message,
         previous_message_id: previousMessageId,
         next_message_id: null,
-        created_at: messageData.createdAt
+        createdAt: messageData.createdAt
           ? new Date(messageData.createdAt)
           : new Date(),
-        updated_at: new Date(),
+        updatedAt: new Date(),
       });
 
       // Update previous message's next_message_id

@@ -7,7 +7,7 @@ import {
   ForeignKey,
   BelongsTo,
 } from 'sequelize-typescript';
-import { LocalStorageModel } from '../../local-intents-responses-storage/entities/local-storage-project.model';
+import { ProjectModel } from 'src/projects/entities/projects.model';
 
 @Table({
   tableName: 'project_assistants',
@@ -17,17 +17,17 @@ import { LocalStorageModel } from '../../local-intents-responses-storage/entitie
 export class ProjectAssistantModel extends Model<ProjectAssistantModel> {
   @PrimaryKey
   @Column({
-    type: DataType.INTEGER,
-    autoIncrement: true,
+    type: DataType.UUID,
+    defaultValue: DataType.UUIDV4,
   })
-  id: number;
+  id: string;
 
-  @ForeignKey(() => LocalStorageModel)
+  @ForeignKey(() => ProjectModel)
   @Column({
-    type: DataType.INTEGER,
-    allowNull: false,
+    type: DataType.UUID,
+    allowNull: true,
   })
-  project_id: number;
+  project_id: string;
 
   @Column({
     type: DataType.STRING(255),
@@ -65,6 +65,10 @@ export class ProjectAssistantModel extends Model<ProjectAssistantModel> {
   })
   is_active: boolean;
 
-  @BelongsTo(() => LocalStorageModel)
-  project: LocalStorageModel;
+  @BelongsTo(() => ProjectModel, {
+    foreignKey: 'project_id',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  })
+  project: ProjectModel;
 }

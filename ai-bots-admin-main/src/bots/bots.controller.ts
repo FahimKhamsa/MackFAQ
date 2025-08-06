@@ -8,17 +8,11 @@ import {
   Query,
   Render,
   Req,
-  UploadedFile,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import {
-  AnyFilesInterceptor,
-  FileFieldsInterceptor,
-  FileInterceptor,
-  FilesInterceptor,
-} from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { NamedModuleInterceptor } from 'src/module.interceptor';
@@ -34,6 +28,7 @@ export class BotsController {
 
   @Get('/create')
   @Render('pages/bots/create')
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   async createView() {}
 
   @Get('/update')
@@ -75,7 +70,7 @@ export class BotsController {
       status: true,
       data: await this.botService.createBot({
         ...body,
-        creator_id: user.id,
+        user_id: user.id,
         favicon_image_file: files?.favicon_file?.[0] && {
           fileName: files?.favicon_file?.[0]?.originalname,
           data: files?.favicon_file?.[0]?.buffer,
@@ -105,7 +100,7 @@ export class BotsController {
       status: true,
       data: await this.botService.updateBot(+body.id, {
         ...body,
-        creator_id: user.id,
+        user_id: user.id,
         favicon_image_file: files?.favicon_file?.[0] && {
           fileName: files?.favicon_file?.[0]?.originalname,
           data: files?.favicon_file?.[0]?.buffer,

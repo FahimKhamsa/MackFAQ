@@ -16,30 +16,37 @@
                     <td>
                         <template v-if="editing?.[`${project.id}_name`]?.editing">
                             <div style="position: relative;">
-                                <input style="background-color: white; max-width: 110px; font-size: larger;padding: 10px;border-radius: 10px;" v-model="editing[`${project.id}_name`].value" type="text" />
-                                <button @click="editFieldEnd(`${project.id}_name`)" style="position: absolute;margin-top: 10px; left: 0;padding: 10px;background-color: var(--colAkcent);border-radius: 10px;color: white; cursor: pointer;margin-left: 0;">Cancel</button>
-                                <button @click="saveEditProject(`${project.id}_name`)" style="position: absolute;margin-top: 10px;right: 0;padding: 10px;background-color: var(--colAkcent);border-radius: 10px; color: white; cursor: pointer;">Save</button>
+                                <input
+                                    style="background-color: white; max-width: 110px; font-size: larger;padding: 10px;border-radius: 10px;"
+                                    v-model="editing[`${project.id}_name`].value" type="text" />
+                                <button @click="editFieldEnd(`${project.id}_name`)"
+                                    style="position: absolute;margin-top: 10px; left: 0;padding: 10px;background-color: var(--colAkcent);border-radius: 10px;color: white; cursor: pointer;margin-left: 0;">Cancel</button>
+                                <button @click="saveEditProject(`${project.id}_name`)"
+                                    style="position: absolute;margin-top: 10px;right: 0;padding: 10px;background-color: var(--colAkcent);border-radius: 10px; color: white; cursor: pointer;">Save</button>
                             </div>
                         </template>
                         <template v-else>
-                            <div  @click="editFieldStart(`${project.id}_name`, project.name)" style="display: flex;">
+                            <div @click="editFieldStart(`${project.id}_name`, project.name)" style="display: flex;">
                                 {{ project.name }}<div style="margin-left: 20px;"></div>
                             </div>
                         </template>
                     </td>
                     <td style="width: 10px;">
-                        <div v-if="!editing?.[`${project.id}_name`]?.editing"  @click="() => editFieldStart(`${project.id}_name`, project.name)">
+                        <div v-if="!editing?.[`${project.id}_name`]?.editing"
+                            @click="() => editFieldStart(`${project.id}_name`, project.name)">
                             <font-awesome-icon icon="edit" />
                         </div>
                     </td>
-                    <td style="width: 10px;" @click="() => deleteProject(project.id)"><font-awesome-icon icon="trash"/></td>
+                    <td style="width: 10px;" @click="() => deleteProject(project.id)"><font-awesome-icon icon="trash" />
+                    </td>
                 </tr>
             </table>
             <div style="text-align: center;" v-else>No projects added yet</div>
         </div>
-        <select v-else type="text" v-model="value" placeholder="Select project">
+        <select v-else v-model="value" placeholder="Select project">
             <option :disabled="!allowEmpty" :value="0">Select project</option>
-            <option v-for="(project, index) of projectsList" :key="project.id" :value="project.id">#{{ project.id }} {{ project.name }}
+            <option v-for="(project, index) of projectsList" :key="project.id" :value="project.id">#{{ project.id }} {{
+                project.name }}
             </option>
         </select>
     </div>
@@ -59,10 +66,16 @@ export default {
             }
         }
     },
-    props: ['modelValue', 'typeSelect','allowEmpty'],
+    props: ['modelValue', 'typeSelect', 'allowEmpty'],
     computed: {
         projectsList() {
-            return this.$store.getters.getAvailableProjects.sort((a,b) => b.id - a.id);
+            return this.$store.getters.getAvailableProjects.sort((a, b) => b.id - a.id);
+        },
+        API_URL() {
+            return process.env.VUE_APP_API_HOST;
+        },
+        currentBot() {
+            return this.$store.getters.getProfile?.default_bot || { id: process.env.VUE_APP_API_BOT_ID || 1 };
         }
     },
     watch: {
@@ -103,8 +116,8 @@ export default {
                 if (!window.confirm('Are you sure you want to delete the project?')) {
                     return;
                 }
-                axios.post(API_URL + '/local-intents-responses-storage/projects/delete', {
-                    id, bot_id: API_BOT_ID
+                axios.post(this.API_URL + '/projects/management/delete', {
+                    id
                 }).then(() => {
                     this.$store.dispatch('updateAvailableProjects');
                 })
@@ -114,10 +127,9 @@ export default {
         },
         async updateProject(id, data) {
             try {
-                axios.post(API_URL + '/local-intents-responses-storage/projects/update', {
+                axios.post(this.API_URL + '/projects/management/update', {
                     ...data,
-                    id: +id, 
-                    bot_id: API_BOT_ID,
+                    id: +id,
                 }).then(() => {
                     this.$store.dispatch('updateAvailableProjects');
                 })
@@ -194,22 +206,25 @@ table {
     }
 
     td:last-child {
-       // max-width: 50px;
+        // max-width: 50px;
     }
 }
 </style>
 
 <style scoped>
-
 table {
     border-collapse: collapse;
 }
+
 tr {
     border-bottom: 1px solid black;
 }
+
 tr:last-child {
-  border-bottom: none;
-}tr:first-child {
-  border-bottom: none;
+    border-bottom: none;
 }
-</style> 
+
+tr:first-child {
+    border-bottom: none;
+}
+</style>
