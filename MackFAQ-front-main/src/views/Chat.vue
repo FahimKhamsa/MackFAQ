@@ -39,90 +39,113 @@
 			</div>
 		</div>
 
-		<div class="chat-messages" ref="messagesContainer">
-			<div v-if="!questions.length" class="empty-chat">
-				<div class="empty-content">
-					<div class="empty-icon">
-						<i class="fas fa-comments"></i>
+		<div class="chat-body-container">
+			<div class="main-chat-area">
+				<div class="chat-messages" ref="messagesContainer">
+					<div v-if="!questions.length" class="empty-chat">
+						<div class="empty-content">
+							<div class="empty-icon">
+								<i class="fas fa-comments"></i>
+							</div>
+							<h3>Start a Conversation</h3>
+							<p>
+								Ask questions about your project documents or get help with SOP compliance.
+							</p>
+						</div>
 					</div>
-					<h3>Start a Conversation</h3>
-					<p>
-						Ask questions about your project documents or get help
-						with SOP compliance.
-					</p>
+
+					<div v-for="(question, index) in questions" :key="index"
+						:class="['message', question.type === 'question' ? 'user-message' : 'ai-message']">
+						<div class="message-avatar">
+							<i :class="question.type === 'question' ? 'fas fa-user' : 'fas fa-robot'"></i>
+						</div>
+						<div class="message-content">
+							<div class="message-text" v-html="formatMessage(question.text)"></div>
+							<div v-if="question.sources && question.sources.length" class="message-sources">
+								<h4>Sources:</h4>
+								<div v-for="source in question.sources" :key="source.id" class="source-item">
+									<i :class="getFileIcon(source.file_type)"></i>
+									<span class="source-name">{{ source.file_name }}</span>
+									<span class="source-type">{{ source.file_type.toUpperCase() }}</span>
+								</div>
+							</div>
+							<div v-if="question.sopReferences && question.sopReferences.length" class="sop-references">
+								<h4>SOP References:</h4>
+								<div v-for="sop in question.sopReferences" :key="sop.id" class="sop-item">
+									<i class="fas fa-book"></i>
+									<span class="sop-title">{{ sop.title }}</span>
+									<span class="sop-category">{{ sop.category }}</span>
+								</div>
+							</div>
+							<div class="message-timestamp">
+								{{ formatTimestamp(question.timestamp) }}
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="chat-input">
+					<div class="input-container">
+						<div class="input-wrapper">
+							<textarea v-model="form.text" @keydown.enter.prevent="handleEnterKey" :placeholder="getInputPlaceholder()"
+								class="input-field" rows="1" ref="messageInput"></textarea>
+							<button @click="sendMessage" :disabled="!form.text.trim() || isLoading"
+								:class="['send-button', { loading: isLoading }]">
+								<i v-if="!isLoading" class="fas fa-paper-plane"></i>
+								<i v-else class="fas fa-spinner fa-spin"></i>
+							</button>
+						</div>
+						<div class="context-status" v-if="selectedProject || includeSOP">
+							<div class="status-items">
+								<span v-if="selectedProject" class="status-item project-context">
+									<i class="fas fa-folder"></i>
+									{{ getProjectName(selectedProject) }}
+								</span>
+								<span v-if="includeSOP" class="status-item sop-context">
+									<i class="fas fa-book"></i>
+									SOP Enabled
+								</span>
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 
-			<div v-for="(question, index) in questions" :key="index" :class="[
-				'message',
-				question.type === 'question'
-					? 'user-message'
-					: 'ai-message',
-			]">
-				<div class="message-avatar">
-					<i :class="question.type === 'question'
-						? 'fas fa-user'
-						: 'fas fa-robot'
-						"></i>
-				</div>
-				<div class="message-content">
-					<div class="message-text" v-html="formatMessage(question.text)"></div>
-					<div v-if="question.sources && question.sources.length" class="message-sources">
-						<h4>Sources:</h4>
-						<div v-for="source in question.sources" :key="source.id" class="source-item">
-							<i :class="getFileIcon(source.file_type)"></i>
-							<span class="source-name">{{
-								source.file_name
-							}}</span>
-							<span class="source-type">{{
-								source.file_type.toUpperCase()
-							}}</span>
-						</div>
-					</div>
-					<div v-if="
-						question.sopReferences &&
-						question.sopReferences.length
-					" class="sop-references">
-						<h4>SOP References:</h4>
-						<div v-for="sop in question.sopReferences" :key="sop.id" class="sop-item">
-							<i class="fas fa-book"></i>
-							<span class="sop-title">{{ sop.title }}</span>
-							<span class="sop-category">{{ sop.category }}</span>
-						</div>
-					</div>
-					<div class="message-timestamp">
-						{{ formatTimestamp(question.timestamp) }}
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<div class="chat-input">
-			<div class="input-container">
-				<div class="input-wrapper">
-					<textarea v-model="form.text" @keydown.enter.prevent="handleEnterKey" :placeholder="getInputPlaceholder()"
-						class="input-field" rows="1" ref="messageInput">
-          </textarea>
-					<button @click="sendMessage" :disabled="!form.text.trim() || isLoading"
-						:class="['send-button', { loading: isLoading }]">
-						<i v-if="!isLoading" class="fas fa-paper-plane"></i>
-						<i v-else class="fas fa-spinner fa-spin"></i>
+			<div class="chat-history-sidebar" :class="{ collapsed: isHistoryCollapsed }">
+				<div class="sidebar-header">
+					<h3>History</h3>
+					<button @click="startNewChat" class="new-chat-btn" title="Start New Chat">
+						<i class="fas fa-plus"></i>
 					</button>
 				</div>
 
-				<div class="context-status" v-if="selectedProject || includeSOP">
-					<div class="status-items">
-						<span v-if="selectedProject" class="status-item project-context">
-							<i class="fas fa-folder"></i>
-							{{ getProjectName(selectedProject) }}
-						</span>
-						<span v-if="includeSOP" class="status-item sop-context">
-							<i class="fas fa-book"></i>
-							SOP Enabled
-						</span>
-					</div>
+				<div v-if="isLoadingHistory" class="loading-state">
+					<i class="fas fa-spinner fa-spin"></i>
+					<span>Loading conversations...</span>
 				</div>
+
+				<div v-else-if="!chatHistory.length && selectedProject" class="empty-state">
+					<i class="fas fa-comments"></i>
+					<span>No conversations yet</span>
+				</div>
+
+				<div v-else-if="!selectedProject" class="empty-state">
+					<i class="fas fa-folder"></i>
+					<span>Select a project to view history</span>
+				</div>
+
+				<ul v-else class="history-list">
+					<li v-for="convo in chatHistory" :key="convo.id" @click="loadConversation(convo.id)"
+						:class="['history-item', { active: convo.id === currentConversationId }]">
+						<p class="history-title">{{ convo.title }}</p>
+						<span class="history-time">{{ formatHistoryDate(convo.timestamp) }}</span>
+					</li>
+				</ul>
 			</div>
+
+			<button @click="toggleHistory" class="history-toggle-button" :class="{ 'is-collapsed': isHistoryCollapsed }">
+				<i :class="isHistoryCollapsed ? 'fas fa-chevron-left' : 'fas fa-chevron-right'"></i>
+			</button>
 		</div>
 
 		<div v-if="showFileModal" class="modal-overlay" @click="closeFileModal">
@@ -141,9 +164,7 @@
 								<span class="checkbox-text">
 									<i :class="getFileIcon(file.file_type)"></i>
 									{{ file.original_name }}
-									<small>{{
-										file.file_category || "Document"
-									}}</small>
+									<small>{{ file.file_category || "Document" }}</small>
 								</span>
 							</label>
 						</div>
@@ -166,6 +187,12 @@
 import axios from "@/axios";
 
 export default {
+	props: {
+		conversationId: {
+			type: String,
+			default: null
+		}
+	},
 	data() {
 		return {
 			form: {
@@ -181,36 +208,149 @@ export default {
 			selectedFiles: [],
 			showFileModal: false,
 			isLoading: false,
-			conversationId: null,
+			currentConversationId: null,
+			// NEW: State for history sidebar
+			isHistoryCollapsed: false,
+			chatHistory: [],
+			isLoadingHistory: false,
+			isLoadingConversation: false,
 		};
 	},
 	async mounted() {
 		await this.loadProjects();
 		this.autoResizeTextarea();
+
+		// Handle initial route - check if we have a conversationId from route
+		await this.handleRouteChange();
+
+		// Load chat history after handling route
+		await this.loadChatHistory();
 	},
 	methods: {
+		// NEW: Method to toggle sidebar visibility
+		toggleHistory() {
+			this.isHistoryCollapsed = !this.isHistoryCollapsed;
+		},
+		// Load chat history for the selected project
+		async loadChatHistory() {
+			if (!this.selectedProject) {
+				this.chatHistory = [];
+				return;
+			}
+
+			this.isLoadingHistory = true;
+			try {
+				const response = await axios.get('/conversations/list-of-conversations', {
+					params: { project_id: this.selectedProject }
+				});
+
+				this.chatHistory = Object.values(response.data.data).map(conv => ({
+					id: conv.id,
+					title: conv.name,
+					timestamp: new Date(parseInt(conv.createdAt))
+				}));
+			} catch (error) {
+				console.error('Failed to load chat history:', error);
+				this.chatHistory = [];
+			} finally {
+				this.isLoadingHistory = false;
+			}
+		},
+
+		// Load a specific conversation
+		async loadConversation(conversationId) {
+			if (this.isLoadingConversation) return;
+
+			this.isLoadingConversation = true;
+			try {
+				const response = await axios.get('/conversations/conversation-history', {
+					params: { conversationId }
+				});
+
+				const conversation = response.data.data;
+
+				// Transform backend message format to frontend format
+				this.questions = conversation.messages.map(msg => ({
+					type: msg.type === 'user_message' ? 'question' : 'answer',
+					text: msg.message,
+					timestamp: new Date(msg.createdAt),
+					sources: [], // Add sources if available in your backend
+					sopReferences: [] // Add SOP references if available
+				}));
+
+				// Update current conversation ID
+				this.currentConversationId = conversationId;
+
+				// Update URL without page refresh
+				if (this.$route.params.conversationId !== conversationId) {
+					this.$router.push(`/chat/${conversationId}`);
+				}
+
+				// Set the project context if the conversation has a project
+				if (conversation.project_id && conversation.project_id !== this.selectedProject) {
+					this.selectedProject = conversation.project_id;
+					await this.updateChatContext();
+				}
+
+				// Scroll to bottom after loading messages
+				this.$nextTick(() => {
+					this.scrollToBottom();
+				});
+
+			} catch (error) {
+				console.error('Failed to load conversation:', error);
+				// If conversation doesn't exist, redirect to new chat
+				this.$router.push('/chat');
+			} finally {
+				this.isLoadingConversation = false;
+			}
+		},
+
+		// Handle route changes
+		async handleRouteChange() {
+			const conversationId = this.$route.params.conversationId;
+
+			if (conversationId && conversationId !== this.currentConversationId) {
+				await this.loadConversation(conversationId);
+			} else if (!conversationId) {
+				// New conversation - clear current state
+				this.questions = [];
+				this.currentConversationId = null;
+			}
+		},
+		// NEW: Helper to format history item dates
+		formatHistoryDate(timestamp) {
+			if (!timestamp) return "";
+			const date = new Date(timestamp);
+			const today = new Date();
+			const yesterday = new Date(today);
+			yesterday.setDate(yesterday.getDate() - 1);
+
+			if (date.toDateString() === today.toDateString()) {
+				return "Today";
+			}
+			if (date.toDateString() === yesterday.toDateString()) {
+				return "Yesterday";
+			}
+			return date.toLocaleDateString();
+		},
 		async loadProjects() {
 			try {
-				// Use the existing backend endpoint for projects
 				await this.$store.dispatch("updateAvailableProjects");
 				this.projects = this.$store.getters.getAvailableProjects;
 			} catch (error) {
 				console.error("Failed to load projects:", error);
 			}
 		},
-
 		async loadProjectFiles() {
 			if (!this.selectedProject) {
 				this.projectFiles = [];
 				return;
 			}
-
 			try {
-				// Use the existing backend endpoint for project files
-				const docsConnected =
-					this.$store.getters.getDocsConnectedToProject(
-						this.selectedProject
-					);
+				const docsConnected = this.$store.getters.getDocsConnectedToProject(
+					this.selectedProject
+				);
 				this.projectFiles = docsConnected
 					.map((conn) => conn.learning_session)
 					.filter(Boolean);
@@ -218,20 +358,26 @@ export default {
 				console.error("Failed to load project files:", error);
 			}
 		},
-
 		async updateChatContext() {
 			await this.loadProjectFiles();
 			this.form.project_id = this.selectedProject;
-		},
 
-		updateSOPSetting() {
-			// SOP setting updated
-		},
+			// Reload chat history for the new project
+			await this.loadChatHistory();
 
-		updateModelSetting() {
-			// Model setting updated
+			// If we're in a specific conversation that doesn't belong to this project,
+			// redirect to new chat
+			if (this.currentConversationId && this.selectedProject) {
+				const currentConv = this.chatHistory.find(c => c.id === this.currentConversationId);
+				if (!currentConv) {
+					this.$router.push('/chat');
+					this.questions = [];
+					this.currentConversationId = null;
+				}
+			}
 		},
-
+		updateSOPSetting() { },
+		updateModelSetting() { },
 		getInputPlaceholder() {
 			if (this.selectedProject && this.includeSOP) {
 				return "Ask about your project documents with SOP compliance...";
@@ -242,18 +388,15 @@ export default {
 			}
 			return "Ask me anything...";
 		},
-
 		getProjectName(projectId) {
 			const project = this.projects.find((p) => p.id == projectId);
 			return project ? project.name : "Unknown Project";
 		},
-
 		handleEnterKey(event) {
 			if (!event.shiftKey) {
 				this.sendMessage();
 			}
 		},
-
 		async sendMessage() {
 			if (!this.form.text.trim() || this.isLoading) return;
 
@@ -269,22 +412,9 @@ export default {
 			const messageText = this.form.text;
 			this.form.text = "";
 
-			// Get user data from store
 			const userProfile = this.$store.getters.getProfile;
 			const userId = userProfile?.id || null;
 			const createdAt = new Date().toISOString();
-
-			const messageData = {
-				prompt: messageText,
-				project_id: this.selectedProject || null,
-				includeSOP: this.includeSOP,
-				model: this.selectedModel,
-				conversationId: this.conversationId || null,
-				userId: userId,
-				createdAt: createdAt,
-				filesToUse: this.selectedFiles.length ? this.selectedFiles : null,
-			};
-			console.log("Sending message data:", messageData);
 
 			try {
 				const response = await axios.get("/api/complete", {
@@ -293,12 +423,12 @@ export default {
 						project_id: this.selectedProject || null,
 						includeSOP: this.includeSOP,
 						model: this.selectedModel,
-						conversationId: this.conversationId || null,
+						conversationId: this.currentConversationId || null,
 						userId: userId,
 						createdAt: createdAt,
-						filesToUse: this.selectedFiles.length
-							? this.selectedFiles
-							: null,
+						filesToUse: this.selectedFiles.length ?
+							this.selectedFiles :
+							null,
 					},
 				});
 
@@ -310,16 +440,21 @@ export default {
 					timestamp: new Date(),
 				};
 
-				// Update conversationId from response (important for new conversations)
 				if (response.data.data.conversationId) {
-					this.conversationId = response.data.data.conversationId;
+					this.currentConversationId = response.data.data.conversationId;
+
+					// Update URL to include conversation ID if we're on a new chat
+					if (!this.$route.params.conversationId) {
+						this.$router.push(`/chat/${this.currentConversationId}`);
+					}
+
+					// Reload chat history to include the new conversation
+					await this.loadChatHistory();
 				}
 				this.questions.push(aiMessage);
 			} catch (error) {
 				console.error("Failed to send message:", error);
-				this.$toast.error("Failed to send message. Please try again.");
-
-				// Remove the user message if the request failed
+				// this.$toast.error("Failed to send message. Please try again.");
 				this.questions.pop();
 			} finally {
 				this.isLoading = false;
@@ -329,26 +464,18 @@ export default {
 				});
 			}
 		},
-
 		formatMessage(text) {
 			if (!text) return "";
-
-			// Convert URLs to links
 			const urlRegex = /(https?:\/\/[^\s]+)/g;
 			text = text.replace(
 				urlRegex,
 				'<a href="$1" target="_blank" rel="noopener">$1</a>'
 			);
-
-			// Convert email addresses to mailto links
 			const emailRegex =
 				/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/g;
 			text = text.replace(emailRegex, '<a href="mailto:$1">$1</a>');
-
-			// Convert line breaks to HTML
 			return text.replace(/\n/g, "<br>");
 		},
-
 		formatTimestamp(timestamp) {
 			if (!timestamp) return "";
 			return new Date(timestamp).toLocaleTimeString([], {
@@ -356,7 +483,6 @@ export default {
 				minute: "2-digit",
 			});
 		},
-
 		getFileIcon(fileType) {
 			const iconMap = {
 				pdf: "fas fa-file-pdf",
@@ -370,7 +496,6 @@ export default {
 			};
 			return iconMap[fileType?.toLowerCase()] || "fas fa-file";
 		},
-
 		scrollToBottom() {
 			this.$nextTick(() => {
 				const container = this.$refs.messagesContainer;
@@ -379,7 +504,6 @@ export default {
 				}
 			});
 		},
-
 		autoResizeTextarea() {
 			this.$nextTick(() => {
 				const textarea = this.$refs.messageInput;
@@ -390,360 +514,546 @@ export default {
 				}
 			});
 		},
-
 		openFileModal() {
 			this.showFileModal = true;
 		},
-
 		closeFileModal() {
 			this.showFileModal = false;
 		},
-
 		applyFileSelection() {
 			this.closeFileModal();
+		},
+
+		// Start a new chat conversation
+		startNewChat() {
+			this.$router.push('/chat');
+			this.questions = [];
+			this.currentConversationId = null;
 		},
 	},
 	watch: {
 		"form.text"() {
 			this.autoResizeTextarea();
 		},
+		'$route'(to, from) {
+			if (to.params.conversationId !== from.params.conversationId) {
+				this.handleRouteChange();
+			}
+		}
 	},
 };
 </script>
 
 <style lang="scss" scoped>
-/* Chat Workspace Layout */
+/* Main Layout */
 .chat-workspace {
-	// MODIFICATION: Changed min-height to height and added overflow to fix layout bugs.
 	height: 100vh;
 	background-color: var(--gray-50);
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
+}
 
-	.chat-header {
-		background-color: white;
-		border-bottom: 1px solid var(--gray-200);
-		padding: 1rem 2rem;
-		z-index: 10; // Ensure header is above chat messages if any overlap occurs
+.chat-header {
+	background-color: white;
+	border-bottom: 1px solid var(--gray-200);
+	padding: 1rem 2rem;
+	z-index: 10;
+	flex-shrink: 0;
 
-		.header-content {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			max-width: 1200px;
-			margin: 0 auto;
+	.header-content {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		max-width: 1200px;
+		margin: 0 auto;
+	}
+
+	.chat-title {
+		h1 {
+			margin: 0;
+			color: var(--gray-900);
+			font-size: 1.5rem;
+			font-weight: 700;
 		}
 
-		.chat-title {
-			h1 {
-				margin: 0;
-				color: var(--gray-900);
-				font-size: 1.5rem;
-				font-weight: 700;
+		.subtitle {
+			margin: 0.25rem 0 0 0;
+			color: var(--gray-600);
+			font-size: 0.875rem;
+		}
+	}
+
+	.context-controls {
+		display: flex;
+		gap: 2rem;
+		align-items: center;
+
+		.control-group {
+			display: flex;
+			flex-direction: column;
+			gap: 0.5rem;
+
+			.control-label {
+				font-size: 0.75rem;
+				font-weight: 600;
+				color: var(--gray-700);
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
 			}
 
-			.subtitle {
-				margin: 0.25rem 0 0 0;
-				color: var(--gray-600);
+			.context-select {
+				min-width: 200px;
+				padding: 0.5rem 0.75rem;
+				border: 1px solid var(--gray-300);
+				border-radius: 0.375rem;
 				font-size: 0.875rem;
+
+				&:focus {
+					outline: none;
+					border-color: var(--primary-blue);
+					box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+				}
 			}
 		}
 
-		.context-controls {
+		.toggle-label {
 			display: flex;
-			gap: 2rem;
 			align-items: center;
+			gap: 0.5rem;
+			cursor: pointer;
 
-			.control-group {
-				display: flex;
-				flex-direction: column;
-				gap: 0.5rem;
+			.toggle-text {
+				font-size: 0.875rem;
+				color: var(--gray-700);
+				font-weight: 500;
+			}
+		}
+	}
+}
 
-				.control-label {
-					font-size: 0.75rem;
-					font-weight: 600;
-					color: var(--gray-700);
-					text-transform: uppercase;
-					letter-spacing: 0.05em;
-				}
 
-				.context-select {
-					min-width: 200px;
-					padding: 0.5rem 0.75rem;
-					border: 1px solid var(--gray-300);
-					border-radius: 0.375rem;
-					font-size: 0.875rem;
+/* NEW: Body Container for Chat + Sidebar */
+.chat-body-container {
+	display: flex;
+	flex: 1;
+	position: relative;
+	overflow: hidden;
+}
 
-					&:focus {
-						outline: none;
-						border-color: var(--primary-blue);
-						box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-					}
-				}
+.main-chat-area {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	min-width: 0;
+}
+
+
+/* Chat Messages Area */
+.chat-messages {
+	flex: 1;
+	max-width: 900px;
+	margin: 0 auto;
+	width: 100%;
+	padding: 2rem;
+	overflow-y: auto;
+
+	.empty-chat {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 100%;
+
+		.empty-content {
+			text-align: center;
+			max-width: 400px;
+
+			.empty-icon {
+				font-size: 4rem;
+				color: var(--gray-300);
+				margin-bottom: 1rem;
 			}
 
-			.toggle-label {
-				display: flex;
-				align-items: center;
-				gap: 0.5rem;
-				cursor: pointer;
+			h3 {
+				margin: 0 0 0.5rem 0;
+				color: var(--gray-700);
+				font-size: 1.25rem;
+				font-weight: 600;
+			}
 
-				.toggle-text {
-					font-size: 0.875rem;
-					color: var(--gray-700);
-					font-weight: 500;
-				}
+			p {
+				margin: 0;
+				color: var(--gray-500);
+				font-size: 0.875rem;
+				line-height: 1.5;
 			}
 		}
 	}
 
-	.chat-messages {
+	.message {
+		margin-bottom: 1.5rem;
 		display: flex;
-		flex-direction: column;
-		flex: 1;
-		max-width: 1200px;
-		margin: 0 auto;
-		width: 100%;
-		padding: 2rem;
-		overflow-x: hidden;
-		overflow-y: auto;
+		gap: 1rem;
+		position: relative;
 
-		.empty-chat {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			height: 100%;
-
-			.empty-content {
-				text-align: center;
-				max-width: 400px;
-
-				.empty-icon {
-					font-size: 4rem;
-					color: var(--gray-300);
-					margin-bottom: 1rem;
-				}
-
-				h3 {
-					margin: 0 0 0.5rem 0;
-					color: var(--gray-700);
-					font-size: 1.25rem;
-					font-weight: 600;
-				}
-
-				p {
-					margin: 0;
-					color: var(--gray-500);
-					font-size: 0.875rem;
-					line-height: 1.5;
-				}
-			}
-		}
-
-		.message {
-			margin-bottom: 1.5rem;
-			display: flex;
-			gap: 1rem;
-			position: relative;
-
-			&.user-message {
-				justify-content: flex-end;
-				inset: 0 0 0 80%;
-
-				.message-avatar {
-					order: 2;
-					background-color: var(--primary-blue);
-					color: white;
-				}
-
-				.message-content {
-					background-color: var(--primary-blue);
-					color: white;
-					border-radius: 1rem 1rem 0.25rem 1rem;
-				}
-			}
-
-			&.ai-message {
-				justify-content: flex-start;
-
-				.message-avatar {
-					background-color: var(--gray-600);
-					color: white;
-				}
-
-				.message-content {
-					background-color: white;
-					color: var(--gray-900);
-					border: 1px solid var(--gray-200);
-					border-radius: 1rem 1rem 1rem 0.25rem;
-				}
-			}
+		&.user-message {
+			justify-content: flex-end;
 
 			.message-avatar {
-				width: 2.5rem;
-				height: 2.5rem;
-				border-radius: 50%;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				flex-shrink: 0;
-				margin-top: 0.5rem;
+				order: 2;
+				background-color: var(--primary-blue);
+				color: white;
 			}
 
 			.message-content {
-				max-width: 70%;
-				padding: 1rem 1.5rem;
-				font-size: 0.875rem;
-				line-height: 1.5;
-				box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+				background-color: var(--primary-blue);
+				color: white;
+				border-radius: 1rem 1rem 0.25rem 1rem;
+			}
+		}
 
-				.message-text {
-					margin-bottom: 0.5rem;
-				}
+		&.ai-message {
+			justify-content: flex-start;
 
-				.message-sources,
-				.sop-references {
-					margin-top: 1rem;
-					padding-top: 1rem;
-					border-top: 1px solid rgba(255, 255, 255, 0.2);
+			.message-avatar {
+				background-color: var(--gray-600);
+				color: white;
+			}
 
-					h4 {
-						margin: 0 0 0.5rem 0;
-						font-size: 0.75rem;
-						font-weight: 600;
-						text-transform: uppercase;
-						opacity: 0.8;
-					}
+			.message-content {
+				background-color: white;
+				color: var(--gray-900);
+				border: 1px solid var(--gray-200);
+				border-radius: 1rem 1rem 1rem 0.25rem;
+			}
+		}
 
-					.source-item,
-					.sop-item {
-						display: flex;
-						align-items: center;
-						gap: 0.5rem;
-						margin-bottom: 0.25rem;
-						font-size: 0.75rem;
-						opacity: 0.9;
+		.message-avatar {
+			width: 2.5rem;
+			height: 2.5rem;
+			border-radius: 50%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex-shrink: 0;
+			margin-top: 0.5rem;
+		}
 
-						i {
-							width: 1rem;
-						}
+		.message-content {
+			max-width: 70%;
+			padding: 1rem 1.5rem;
+			font-size: 0.875rem;
+			line-height: 1.5;
+			box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 
-						.source-type,
-						.sop-category {
-							margin-left: auto;
-							opacity: 0.7;
-						}
-					}
-				}
+			.message-text {
+				margin-bottom: 0.5rem;
+			}
 
-				.ai-message & .message-sources,
-				.ai-message & .sop-references {
-					border-top: 1px solid var(--gray-200);
-				}
+			.message-sources,
+			.sop-references {
+				margin-top: 1rem;
+				padding-top: 1rem;
+				border-top: 1px solid rgba(255, 255, 255, 0.2);
 
-				.message-timestamp {
-					margin-top: 0.5rem;
+				h4 {
+					margin: 0 0 0.5rem 0;
 					font-size: 0.75rem;
-					opacity: 0.7;
-					text-align: right;
+					font-weight: 600;
+					text-transform: uppercase;
+					opacity: 0.8;
 				}
+
+				.source-item,
+				.sop-item {
+					display: flex;
+					align-items: center;
+					gap: 0.5rem;
+					margin-bottom: 0.25rem;
+					font-size: 0.75rem;
+					opacity: 0.9;
+
+					i {
+						width: 1rem;
+					}
+
+					.source-type,
+					.sop-category {
+						margin-left: auto;
+						opacity: 0.7;
+					}
+				}
+			}
+
+			&.ai-message .message-sources,
+			&.ai-message .sop-references {
+				border-top: 1px solid var(--gray-200);
+			}
+
+			.message-timestamp {
+				margin-top: 0.5rem;
+				font-size: 0.75rem;
+				opacity: 0.7;
+				text-align: right;
 			}
 		}
 	}
+}
 
-	.chat-input {
-		background-color: #ffffff;
-		border-top: 1px solid var(--gray-200);
-		padding: 1rem 2rem;
-		z-index: 10;
 
-		.input-container {
-			max-width: 1200px;
-			margin: 0 auto;
+/* Chat Input Area */
+.chat-input {
+	flex-shrink: 0;
+	background-color: #ffffff;
+	border-top: 1px solid var(--gray-200);
+	padding: 1rem 2rem;
+	z-index: 5;
 
-			.input-wrapper {
-				display: flex;
-				gap: 1rem;
-				align-items: flex-end;
-				background-color: #fff;
-				padding: 0.5rem;
-				border-radius: 0.75rem;
-				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+	.input-container {
+		max-width: 900px;
+		margin: 0 auto;
 
-				.input-field {
-					flex: 1;
-					min-height: 2.5rem;
-					max-height: 8rem;
-					padding: 0.75rem;
-					border: none;
-					resize: none;
-					font-size: 0.875rem;
-					font-family: inherit;
+		.input-wrapper {
+			display: flex;
+			gap: 1rem;
+			align-items: flex-end;
+			background-color: #fff;
+			padding: 0.5rem;
+			border-radius: 0.75rem;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 
-					&:focus {
-						outline: none;
-					}
-				}
+			.input-field {
+				flex: 1;
+				min-height: 2.5rem;
+				max-height: 8rem;
+				padding: 0.75rem;
+				border: none;
+				resize: none;
+				font-size: 0.875rem;
+				font-family: inherit;
 
-				.send-button {
-					padding: 0.75rem 1.5rem;
-					background-color: var(--primary-blue);
-					color: white;
-					border: none;
-					border-radius: 0.5rem;
-					font-weight: 600;
-					cursor: pointer;
-					transition: all 0.15s ease-in-out;
-
-					&:hover:not(:disabled) {
-						background-color: var(--primary-blue-light);
-					}
-
-					&:disabled {
-						background-color: var(--gray-300);
-						cursor: not-allowed;
-					}
-
-					&.loading {
-						pointer-events: none;
-					}
+				&:focus {
+					outline: none;
 				}
 			}
 
-			.context-status {
-				margin-top: 0.5rem;
-				padding-left: 0.5rem;
+			.send-button {
+				padding: 0.75rem 1.5rem;
+				background-color: var(--primary-blue);
+				color: white;
+				border: none;
+				border-radius: 0.5rem;
+				font-weight: 600;
+				cursor: pointer;
+				transition: all 0.15s ease-in-out;
 
-				.status-items {
+				&:hover:not(:disabled) {
+					background-color: var(--primary-blue-light);
+				}
+
+				&:disabled {
+					background-color: var(--gray-300);
+					cursor: not-allowed;
+				}
+
+				&.loading {
+					pointer-events: none;
+				}
+			}
+		}
+
+		.context-status {
+			margin-top: 0.5rem;
+			padding-left: 0.5rem;
+
+			.status-items {
+				display: flex;
+				gap: 0.5rem;
+				flex-wrap: wrap;
+
+				.status-item {
 					display: flex;
-					gap: 0.5rem;
-					flex-wrap: wrap;
+					align-items: center;
+					gap: 0.25rem;
+					padding: 0.25rem 0.5rem;
+					border-radius: 0.25rem;
+					font-size: 0.75rem;
+					color: var(--gray-700);
 
-					.status-item {
-						display: flex;
-						align-items: center;
-						gap: 0.25rem;
-						padding: 0.25rem 0.5rem;
-						border-radius: 0.25rem;
-						font-size: 0.75rem;
-						color: var(--gray-700);
+					&.project-context {
+						background-color: rgba(37, 99, 235, 0.1);
+						color: var(--primary-blue);
+					}
 
-						&.project-context {
-							background-color: rgba(37, 99, 235, 0.1);
-							color: var(--primary-blue);
-						}
-
-						&.sop-context {
-							background-color: rgba(16, 185, 129, 0.1);
-							color: var(--success-green);
-						}
+					&.sop-context {
+						background-color: rgba(16, 185, 129, 0.1);
+						color: var(--success-green);
 					}
 				}
 			}
 		}
 	}
 }
+
+
+/* NEW: Chat History Sidebar */
+.chat-history-sidebar {
+	width: 280px;
+	flex-shrink: 0;
+	background-color: #f8f9fa;
+	border-left: 1px solid var(--gray-200);
+	display: flex;
+	flex-direction: column;
+	transition: margin-right 0.3s ease-in-out;
+	margin-right: 0;
+
+	&.collapsed {
+		margin-right: -280px; // Slide out of view
+	}
+
+	.sidebar-header {
+		padding: 1.25rem 1.5rem;
+		border-bottom: 1px solid var(--gray-200);
+		flex-shrink: 0;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+
+		h3 {
+			margin: 0;
+			font-size: 1.1rem;
+			font-weight: 600;
+			color: var(--gray-800);
+		}
+
+		.new-chat-btn {
+			width: 28px;
+			height: 28px;
+			border-radius: 50%;
+			background-color: var(--primary-blue);
+			color: white;
+			border: none;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
+			transition: all 0.2s ease;
+			font-size: 0.75rem;
+
+			&:hover {
+				background-color: var(--primary-blue-light);
+				transform: scale(1.05);
+			}
+		}
+	}
+
+	.loading-state,
+	.empty-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 2rem 1rem;
+		text-align: center;
+		color: var(--gray-500);
+		flex: 1;
+
+		i {
+			font-size: 2rem;
+			margin-bottom: 0.5rem;
+			opacity: 0.6;
+		}
+
+		span {
+			font-size: 0.875rem;
+		}
+	}
+
+	.loading-state i {
+		color: var(--primary-blue);
+	}
+
+	.history-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		flex: 1;
+		overflow-y: auto;
+
+		.history-item {
+			padding: 1rem 1.5rem;
+			cursor: pointer;
+			border-bottom: 1px solid var(--gray-200);
+			transition: background-color 0.2s;
+
+			&:hover {
+				background-color: var(--gray-200);
+			}
+
+			&.active {
+				background-color: rgba(37, 99, 235, 0.1);
+				border-left: 3px solid var(--primary-blue);
+
+				.history-title {
+					color: var(--primary-blue);
+					font-weight: 600;
+				}
+
+				&:hover {
+					background-color: rgba(37, 99, 235, 0.15);
+				}
+			}
+
+			.history-title {
+				display: block;
+				color: var(--gray-800);
+				font-weight: 500;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				margin: 0 0 0.25rem 0;
+			}
+
+			.history-time {
+				font-size: 0.75rem;
+				color: var(--gray-500);
+			}
+		}
+	}
+}
+
+
+/* NEW: History Toggle Button */
+.history-toggle-button {
+	position: absolute;
+	top: 50%;
+	right: 290px;
+	transform: translateY(-50%);
+	z-index: 20;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background-color: white;
+	border: 1px solid var(--gray-300);
+	box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	color: var(--gray-600);
+	transition: right 0.3s ease-in-out, background-color 0.2s, color 0.2s;
+
+	&:hover {
+		background-color: var(--primary-blue);
+		color: white;
+	}
+
+	&.is-collapsed {
+		right: 10px;
+	}
+}
+
 
 /* Modal Styles */
 .modal-overlay {
@@ -821,46 +1131,73 @@ export default {
 	}
 }
 
+
 /* Responsive Design */
 @media (max-width: 1024px) {
-	.chat-workspace {
-		.chat-header {
-			padding: 1rem;
+	.chat-header {
+		padding: 1rem;
 
-			.header-content {
-				flex-direction: column;
-				gap: 1rem;
-				align-items: flex-start;
-			}
+		.header-content {
+			flex-direction: column;
+			gap: 1rem;
+			align-items: flex-start;
+		}
 
-			.context-controls {
-				flex-direction: column;
-				gap: 1rem;
+		.context-controls {
+			flex-direction: column;
+			gap: 1rem;
+			width: 100%;
+			align-items: stretch;
+
+			.control-group {
 				width: 100%;
-				align-items: stretch;
 
-				.control-group {
+				.context-select {
 					width: 100%;
-
-					.context-select {
-						width: 100%;
-					}
 				}
 			}
 		}
+	}
 
-		.chat-messages {
-			padding: 1rem;
+	.chat-messages {
+		padding: 1rem;
 
-			.message {
-				.message-content {
-					max-width: 85%;
-				}
-			}
+		.message .message-content {
+			max-width: 85%;
+		}
+	}
+
+	.chat-input {
+		padding: 1rem;
+	}
+
+	.chat-history-sidebar {
+		position: absolute;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		z-index: 50;
+		margin-right: -290px;
+
+		&.collapsed {
+			margin-right: -290px;
 		}
 
-		.chat-input {
-			padding: 1rem;
+		&:not(.collapsed) {
+			margin-right: 0;
+			box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+		}
+	}
+
+	.history-toggle-button {
+		right: 10px;
+
+		&.is-collapsed {
+			right: 10px;
+		}
+
+		&:not(.is-collapsed) {
+			right: 290px;
 		}
 	}
 }

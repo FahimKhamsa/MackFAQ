@@ -43,9 +43,10 @@ const routes = [
                         component: Train
                     },
                     {
-                        path: '/chat',
+                        path: '/chat/:conversationId?',
                         name: 'chat',
-                        component: Chat
+                        component: Chat,
+                        props: true
                     },
                     {
                         path: '/chat-only',
