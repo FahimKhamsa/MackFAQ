@@ -24,3 +24,7 @@ export class IUpdateProjectDTO extends ICreateProjectDTO {
   @IsOptional()
   prompt_prefix?: string;
 }
+export class IDeleteProjectDTO {
+  @IsUUID()
+  id: string;
+}

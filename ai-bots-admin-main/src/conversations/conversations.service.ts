@@ -84,7 +84,7 @@ export class ConversationsService {
         {
           model: MessageModel,
           as: 'messageModels',
-          order: [['createdAt', 'ASC']],
+          order: [['createdAt', 'DESC']],
         },
       ],
     });
@@ -115,8 +115,8 @@ export class ConversationsService {
       id: conversation.id,
       messages,
       messages_slug: conversation.messages_slug || '',
-      created_at: conversation.createdAt,
-      updated_at: conversation.updatedAt,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
     };
   }
 
@@ -135,10 +135,18 @@ export class ConversationsService {
 
     const result = {};
     for (const conv of conversations) {
+      // const quesions = await this.messageModel.count({
+      //   where: { conversation_id: conv.id, type: MessageTypes.USER_MESSAGE },
+      // });
+
+      const questions = Math.ceil(conv.messages.length / 2);
+
       result[conv.id] = {
         id: conv.id,
         name: conv.name,
-        createdAt: conv.createdAt.getTime().toString(),
+        questions: questions,
+        createdAt: conv.createdAt,
+        updatedAt: conv.updatedAt,
         messages_slug: conv.messages_slug || '',
       };
     }
@@ -218,6 +226,55 @@ export class ConversationsService {
     await this.conversationModel.destroy({
       where: { id: conversationId },
     });
+  }
+
+  async renameConversation(
+    conversationId: string,
+    newName: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      const conversation = await this.conversationModel.findByPk(
+        conversationId,
+      );
+
+      if (!conversation) {
+        return { success: false, message: 'Conversation not found' };
+      }
+
+      await conversation.update({ name: newName });
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  async deleteConversation(
+    conversationId: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      const conversation = await this.conversationModel.findByPk(
+        conversationId,
+      );
+
+      if (!conversation) {
+        return { success: false, message: 'Conversation not found' };
+      }
+
+      // Delete all messages for this conversation
+      await this.messageModel.destroy({
+        where: { conversation_id: conversationId },
+      });
+
+      // Delete the conversation
+      await this.conversationModel.destroy({
+        where: { id: conversationId },
+      });
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
   }
 
   async generateConversationMessagesSlug(

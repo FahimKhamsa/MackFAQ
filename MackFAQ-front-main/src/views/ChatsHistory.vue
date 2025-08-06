@@ -16,7 +16,7 @@
                 <div class="card-body">
                     <div class="form-group">
                         <label class="form-label">Select Project</label>
-                        <ListOfProjects :allowEmpty="false" v-model="project_id"></ListOfProjects>
+                        <ListOfProjects :allowEmpty="true" v-model="project_id"></ListOfProjects>
                     </div>
                 </div>
             </div>
@@ -82,19 +82,20 @@
                 </div>
             </div>
 
-            <p style="display: flex;justify-content: space-between; margin-top: 20px;">
-            <div v-if="TEXT_FAQ_SHOW">
-                <button v-if="!qaEditor" @click="() => qaEditor = true" class="btn">Edit Prompt &
-                    QA</button>
-                <button v-if="qaEditor" @click="() => qaEditor = false" class="btn">Close</button>
+            <div style="display: flex;justify-content: space-between; margin-top: 20px;">
+                <div v-if="TEXT_FAQ_SHOW">
+                    <button v-if="!qaEditor" @click="() => qaEditor = true" class="btn">Edit Prompt &
+                        QA</button>
+                    <button v-if="qaEditor" @click="() => qaEditor = false" class="btn">Close</button>
 
-            </div>
-            <div>
-                <button class="btn" v-if="currentChat && nextChat" @click="() => openChatHistoryModal(nextChat.id)">Next
-                    Chat</button>
+                </div>
+                <div>
+                    <button class="btn" v-if="currentChat && nextChat"
+                        @click="() => openChatHistoryModal(nextChat.id)">Next
+                        Chat</button>
 
+                </div>
             </div>
-            </p>
 
 
             <div v-if="qaEditor" style="min-height: 200px; margin-top: 20px;">
@@ -113,6 +114,13 @@
             </div>
         </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <ConfirmationModal :show="showDeleteModal" type="delete" title="Delete Conversation"
+        :item-name="conversationToDelete?.messages_slug || `Conversation ${conversationToDelete?.id}`"
+        message="Are you sure you want to delete the conversation" warning-text="This action cannot be undone."
+        :is-loading="isDeleting" confirm-text="Delete Conversation" loading-text="Deleting..." @confirm="confirmDelete"
+        @cancel="cancelDelete" />
 </template>
 
 <script>
@@ -123,6 +131,7 @@ import Textarea from '@/components/Textarea.vue';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import QAEditor from '@/components/QAEditor.vue';
 import ConversationsTable from '@/components/Conversations/ConversationsTable.vue';
+import ConfirmationModal from '@/components/ConfirmationModal.vue';
 
 export default {
     components: {
@@ -131,7 +140,8 @@ export default {
         Textarea,
         FontAwesomeIcon,
         QAEditor,
-        ConversationsTable
+        ConversationsTable,
+        ConfirmationModal
     },
     data() {
         return {
@@ -143,6 +153,9 @@ export default {
             currentChatId: null,
             selectedConversation: null,
             isLoadingConversations: false,
+            showDeleteModal: false,
+            conversationToDelete: null,
+            isDeleting: false,
 
             chatsTimer: null,
         }
@@ -325,13 +338,13 @@ Are you sure you want to upload the file?`)) {
 
         handleConversationSelected(conversation) {
             this.selectedConversation = conversation;
-            this.openChatHistoryModal(conversation.id);
+            this.$router.push(`/chat/${conversation.id}`);
         },
 
         handleConversationAction({ action, conversation, newName }) {
             switch (action) {
                 case 'view':
-                    this.openChatHistoryModal(conversation.id);
+                    this.handleConversationSelected(conversation);
                     break;
                 case 'rename':
                     this.renameConversation(conversation, newName);
@@ -351,10 +364,18 @@ Are you sure you want to upload the file?`)) {
             if (!newName) return;
 
             try {
-                // Note: This would need to be implemented in the backend
-                // For now, we'll just show a message
-                this.$toast.info('Rename functionality would be implemented here', { position: 'top' });
-                console.log('Rename conversation', conversation.id, 'to', newName);
+                const response = await axios.put(API_URL + '/conversations/rename-conversation', {
+                    conversationId: conversation.id,
+                    name: newName
+                });
+
+                if (response.data.success) {
+                    this.$toast.success('Conversation renamed successfully', { position: 'top' });
+                    // Refresh the conversations list
+                    this.$store.dispatch('updateProjectConversationsList', { project_id: this.project_id });
+                } else {
+                    this.$toast.error(response.data.message || 'Failed to rename conversation', { position: 'top' });
+                }
             } catch (error) {
                 console.error('Failed to rename conversation:', error);
                 this.$toast.error('Failed to rename conversation', { position: 'top' });
@@ -401,22 +422,41 @@ Are you sure you want to upload the file?`)) {
             }
         },
 
-        async deleteConversation(conversation) {
-            if (!window.confirm(`Are you sure you want to delete the conversation "${conversation.messages_slug || `Conversation ${conversation.id}`}"?\n\nThis action cannot be undone.`)) {
-                return;
-            }
+        deleteConversation(conversation) {
+            this.conversationToDelete = conversation;
+            this.showDeleteModal = true;
+        },
+
+        cancelDelete() {
+            this.showDeleteModal = false;
+            this.conversationToDelete = null;
+            this.isDeleting = false;
+        },
+
+        async confirmDelete() {
+            if (!this.conversationToDelete) return;
 
             try {
-                // Note: This would need to be implemented in the backend
-                // For now, we'll just show a message
-                this.$toast.info('Delete functionality would be implemented here', { position: 'top' });
-                console.log('Delete conversation', conversation.id);
+                this.isDeleting = true;
+                const response = await axios.delete(API_URL + '/conversations/delete-conversation', {
+                    data: {
+                        conversationId: this.conversationToDelete.id
+                    }
+                });
 
-                // After successful deletion, refresh the conversations list
-                // this.$store.dispatch('updateProjectConversationsList', { project_id: this.project_id });
+                if (response.data.success) {
+                    this.$toast.success('Conversation deleted successfully', { position: 'top' });
+                    // Refresh the conversations list
+                    this.$store.dispatch('updateProjectConversationsList', { project_id: this.project_id });
+                    this.cancelDelete();
+                } else {
+                    this.$toast.error(response.data.message || 'Failed to delete conversation', { position: 'top' });
+                    this.isDeleting = false;
+                }
             } catch (error) {
                 console.error('Failed to delete conversation:', error);
                 this.$toast.error('Failed to delete conversation', { position: 'top' });
+                this.isDeleting = false;
             }
         }
     }

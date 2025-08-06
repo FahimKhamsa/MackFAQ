@@ -5,8 +5,7 @@
                 <thead>
                     <tr>
                         <th></th>
-                        <th>
-                        </th>
+                        <th></th>
                         <th></th>
                         <th></th>
                     </tr>
@@ -45,8 +44,8 @@
         </div>
         <select v-else v-model="value" placeholder="Select project">
             <option :disabled="!allowEmpty" :value="0">Select project</option>
-            <option v-for="(project, index) of projectsList" :key="project.id" :value="project.id">#{{ project.id }} {{
-                project.name }}
+            <option v-for="(project, index) of projectsList" :key="project.id" :value="project.id">
+                {{ project.name }}
             </option>
         </select>
     </div>
@@ -75,7 +74,7 @@ export default {
             return process.env.VUE_APP_API_HOST;
         },
         currentBot() {
-            return this.$store.getters.getProfile?.default_bot || { id: process.env.VUE_APP_API_BOT_ID || 1 };
+            return this.$store.getters.getProfile?.default_bot;
         }
     },
     watch: {

@@ -24,7 +24,7 @@ export class MessagesService {
   public async getMessagesByConversationId(conversationId: string) {
     return await this.messageModel.findAll({
       where: { conversation_id: conversationId },
-      order: [['created_at', 'ASC']],
+      order: [['createdAt', 'ASC']],
     });
   }
 

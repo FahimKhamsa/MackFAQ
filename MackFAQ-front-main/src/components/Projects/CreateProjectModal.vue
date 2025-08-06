@@ -93,10 +93,11 @@ export default {
 
 				console.log('Creating project with user ID:', userId);
 
+
+
 				const requestData = {
 					name: this.projectName.trim(),
-					bot_id: process.env.VUE_APP_API_BOT_ID,
-					creator_id: userId
+					user_id: userId
 				};
 
 				console.log('Project creation request data:', requestData);

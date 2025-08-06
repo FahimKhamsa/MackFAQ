@@ -15,7 +15,11 @@ import {
 import { Request } from 'express';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { NamedModuleInterceptor } from 'src/module.interceptor';
-import { ICreateProjectDTO, IUpdateProjectDTO } from '../dto/project.dto';
+import {
+  ICreateProjectDTO,
+  IDeleteProjectDTO,
+  IUpdateProjectDTO,
+} from '../dto/project.dto';
 import { ProjectsService } from '../projects.service';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UserModel } from 'src/users/entities/user.model';
@@ -136,15 +140,14 @@ export class ProjectManagementController {
 
   @Post('/delete')
   @UseGuards(JwtAuthGuard)
-  async delete(@Body() body, @Req() req: Request) {
+  async delete(@Body() body: IDeleteProjectDTO, @Req() req: Request) {
     const user = req.user as any;
-    const bot = await this.botsService.getDefaultBotForUser({
-      user_id: user.id,
-    });
-
     return {
       status: true,
-      data: await this.projectsService.deleteProject(body.id, body),
+      data: await this.projectsService.deleteProject({
+        project_id: body.id,
+        user_id: user.id,
+      }),
     };
   }
 }

@@ -1370,8 +1370,8 @@ export class ApiService {
         }),
       ),
       messages_slug: conversation.messages_slug,
-      created_at: conversation.created_at,
-      updated_at: conversation.updated_at,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
     };
   }
 

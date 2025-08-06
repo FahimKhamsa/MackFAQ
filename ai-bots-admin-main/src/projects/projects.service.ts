@@ -4,6 +4,7 @@ import { InjectModel } from '@nestjs/sequelize';
 import { ICreateProjectDTO, IUpdateProjectDTO } from './dto/project.dto';
 import { ProjectModel } from './entities/projects.model';
 import * as crypto from 'crypto';
+import { OpenaiKnowledgeService } from 'src/openai-knowledge/openai-knowledge.service';
 
 export type IConfig = {
   user_id: string;
@@ -25,10 +26,21 @@ export class ProjectsService {
   constructor(
     @InjectModel(ProjectModel)
     private projectModel: typeof ProjectModel,
+    private openaiKnowledgeService: OpenaiKnowledgeService,
   ) {}
 
   public async createProject(payload: IProjectCreatePayload) {
-    const project = await this.projectModel.create({ ...payload });
+    const projectWihoutAssistant = await this.projectModel.create({
+      ...payload,
+    });
+
+    const { dbId } = await this.openaiKnowledgeService.createOrGetAssistant(
+      projectWihoutAssistant.id,
+    );
+
+    const project = await projectWihoutAssistant.update({
+      assistant_id: dbId,
+    });
     await this.setProjectLink(project);
     await project.save();
     return project;
@@ -69,10 +81,10 @@ export class ProjectsService {
     });
   }
 
-  public async deleteProject(id: string, config: Partial<IConfig>) {
+  public async deleteProject(config: Partial<IConfig>) {
     return await this.projectModel.destroy({
       where: {
-        id: id,
+        id: config.project_id,
         user_id: config.user_id,
       },
     });

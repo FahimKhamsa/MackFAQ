@@ -7,11 +7,13 @@ import { ProjectManagementController } from './management/project-management.con
 import { DatabaseModule } from '../database/database.module';
 import { IdentityModule } from '../identity/identity.module';
 import { BotsModule } from '../bots/bots.module';
+import { OpenaiKnowledgeService } from 'src/openai-knowledge/openai-knowledge.service';
 
 @Module({
   imports: [DatabaseModule, IdentityModule, BotsModule],
   providers: [
     ProjectsService,
+    OpenaiKnowledgeService,
     {
       provide: getModelToken(ProjectModel),
       useValue: ProjectModel,

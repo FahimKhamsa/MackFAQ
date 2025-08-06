@@ -25,7 +25,6 @@ export class ProjectModel extends Model<ProjectModel> {
 
   @Column({
     type: DataType.UUID,
-    allowNull: false,
   })
   assistant_id: string;
 

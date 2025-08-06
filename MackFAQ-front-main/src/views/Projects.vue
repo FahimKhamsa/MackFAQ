@@ -31,41 +31,11 @@
 		<CreateProjectModal :show="showCreateModal" @close="showCreateModal = false" @project-created="onProjectCreated" />
 
 		<!-- Delete Confirmation Modal -->
-		<div v-if="showDeleteModal" class="modal-overlay" @click="cancelDelete">
-			<div class="modal-content delete-modal" @click.stop>
-				<div class="modal-header">
-					<h3>Delete Project</h3>
-					<button @click="cancelDelete" class="modal-close">
-						<i class="fas fa-times"></i>
-					</button>
-				</div>
-
-				<div class="modal-body">
-					<div class="delete-warning">
-						<div class="warning-icon">
-							<i class="fas fa-exclamation-triangle"></i>
-						</div>
-						<div class="warning-content">
-							<p>Are you sure you want to delete <strong>"{{ projectToDelete?.name }}"</strong>?</p>
-							<p class="warning-text">This action cannot be undone. All files and data associated with this project will
-								be permanently deleted.</p>
-						</div>
-					</div>
-				</div>
-
-				<div class="modal-footer">
-					<button @click="cancelDelete" class="btn-modern btn-secondary">
-						Cancel
-					</button>
-					<button @click="confirmDelete" :disabled="isDeleting"
-						:class="['btn-modern', 'btn-danger', { 'loading': isDeleting }]">
-						<i v-if="!isDeleting" class="fas fa-trash"></i>
-						<i v-else class="fas fa-spinner fa-spin"></i>
-						{{ isDeleting ? 'Deleting...' : 'Delete Project' }}
-					</button>
-				</div>
-			</div>
-		</div>
+		<ConfirmationModal :show="showDeleteModal" type="delete" title="Delete Project" :item-name="projectToDelete?.name"
+			message="Are you sure you want to delete"
+			warning-text="This action cannot be undone. All files and data associated with this project will be permanently deleted."
+			:is-loading="isDeleting" confirm-text="Delete Project" loading-text="Deleting..." @confirm="confirmDelete"
+			@cancel="cancelDelete" />
 	</div>
 </template>
 
@@ -73,11 +43,13 @@
 import axios from "@/axios";
 import CreateProjectModal from "@/components/Projects/CreateProjectModal.vue";
 import ProjectsTable from "@/components/Projects/ProjectsTable.vue";
+import ConfirmationModal from "@/components/ConfirmationModal.vue";
 
 export default {
 	components: {
 		CreateProjectModal,
 		ProjectsTable,
+		ConfirmationModal,
 	},
 	data() {
 		return {

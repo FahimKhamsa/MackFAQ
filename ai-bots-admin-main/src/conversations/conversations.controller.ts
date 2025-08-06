@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Query, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  Delete,
+  Put,
+} from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
 import { IMessage } from 'src/api/dto/get-complete.dto';
 
@@ -19,6 +27,15 @@ export interface ICreateConversationDTO {
 }
 
 export interface IClearMemoryDTO {
+  conversationId: string;
+}
+
+export interface IRenameConversationDTO {
+  conversationId: string;
+  name: string;
+}
+
+export interface IDeleteConversationDTO {
   conversationId: string;
 }
 
@@ -91,6 +108,29 @@ export class ConversationsController {
     await this.conversationsService.clearConversation(body.conversationId);
     return {
       success: true,
+    };
+  }
+
+  @Put('rename-conversation')
+  async renameConversation(@Body() body: IRenameConversationDTO) {
+    const result = await this.conversationsService.renameConversation(
+      body.conversationId,
+      body.name,
+    );
+    return {
+      success: result.success,
+      message: result.message,
+    };
+  }
+
+  @Delete('delete-conversation')
+  async deleteConversation(@Body() body: IDeleteConversationDTO) {
+    const result = await this.conversationsService.deleteConversation(
+      body.conversationId,
+    );
+    return {
+      success: result.success,
+      message: result.message,
     };
   }
 }

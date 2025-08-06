@@ -26,15 +26,15 @@
                     @blur="saveRename(conversation)" ref="editInput" class="conversation-name-input">
                 </div>
                 <span v-else class="conversation-name" @dblclick="startRename(conversation)">
-                  {{ conversation.messages_slug || `Conversation ${conversation.id}` }}
+                  {{ conversation.name || `Conversation ${conversation.id}` }}
                 </span>
               </div>
             </td>
             <td class="col-updated">
-              <span class="date-text">{{ formatDate(conversation.createdAt) }}</span>
+              <span class="date-text">{{ formatDate(conversation.updatedAt) }}</span>
             </td>
             <td class="col-questions">
-              <span class="questions-count">{{ getQuestionsCount(conversation) }}</span>
+              <span class="questions-count">{{ conversation.questions }}</span>
             </td>
             <td class="col-actions">
               <div class="actions-dropdown" :class="{ 'open': openDropdown === conversation.id }">
@@ -42,10 +42,10 @@
                   <font-awesome-icon icon="ellipsis-h" />
                 </button>
                 <div v-if="openDropdown === conversation.id" class="dropdown-menu">
-                  <button @click.stop="handleAction('view', conversation)" class="dropdown-item">
+                  <!-- <button @click.stop="handleAction('view', conversation)" class="dropdown-item">
                     <i class="fas fa-eye"></i>
                     View
-                  </button>
+                  </button> -->
                   <button @click.stop="handleAction('rename', conversation)" class="dropdown-item">
                     <i class="fas fa-edit"></i>
                     Rename
