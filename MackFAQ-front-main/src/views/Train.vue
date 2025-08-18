@@ -149,7 +149,7 @@
       </div>
 
       <!-- Train AI Card -->
-      <div class="card full-width" v-if="project_id">
+      <!-- <div class="card full-width" v-if="project_id">
         <div class="card-header">
           <h3><i class="fas fa-brain"></i> AI Training</h3>
         </div>
@@ -164,7 +164,7 @@
             </button>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <!-- Available Files Card -->
       <div class="card full-width" v-if="!reload && availableFiles && availableFiles.length">
@@ -690,9 +690,7 @@ Are you sure you want to upload the file?`)
   }
 
   .train-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 2rem;
+    max-width: 100%;
   }
 
   .train-grid {

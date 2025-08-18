@@ -27,7 +27,7 @@
                     <h3><i class="fas fa-comments"></i> Conversation History</h3>
                     <span class="chat-count" v-if="allChatsList">{{ allChatsList.length }} conversations</span>
                 </div>
-                <div class="card-body">
+                <div>
                     <!-- Loading State -->
                     <div v-if="isLoadingConversations" class="loading-state">
                         <div class="loading-content">
@@ -501,9 +501,9 @@ Are you sure you want to upload the file?`)) {
     }
 
     .chats-content {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 0 2rem;
+        max-width: 100%;
+        // margin: 0 auto;
+        // padding: 0 2rem;
         display: grid;
         gap: 2rem;
     }

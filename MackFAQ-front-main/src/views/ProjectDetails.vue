@@ -674,7 +674,7 @@ export default {
 <style lang="scss" scoped>
 .project-details-workspace {
 	min-height: 100vh;
-	background: var(--gray-50);
+	// background: var(--gray-50);
 }
 
 .workspace-header {
@@ -743,7 +743,7 @@ export default {
 }
 
 .workspace-content {
-	padding: 2rem;
+	padding: 2rem 0;
 	max-width: 1400px;
 	margin: 0 auto;
 	display: flex;

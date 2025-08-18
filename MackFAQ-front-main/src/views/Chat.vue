@@ -549,7 +549,8 @@ export default {
 /* Main Layout */
 .chat-workspace {
 	height: 100vh;
-	background-color: var(--gray-50);
+	border: 1px solid var(--gray-400);
+	// background-color: var(--gray-50);
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
@@ -905,8 +906,8 @@ export default {
 .chat-history-sidebar {
 	width: 280px;
 	flex-shrink: 0;
-	background-color: #f8f9fa;
-	border-left: 1px solid var(--gray-200);
+	// background-color: #f8f9fa;
+	border-left: 1px solid var(--gray-400);
 	display: flex;
 	flex-direction: column;
 	transition: margin-right 0.3s ease-in-out;
