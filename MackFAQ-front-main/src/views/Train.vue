@@ -97,34 +97,51 @@
       <!-- File Upload Card -->
       <div class="card">
         <div class="card-header">
-          <h3><i class="fas fa-cloud-upload-alt"></i> Document Upload</h3>
+          <div class="header-left">
+            <h3><i class="fas fa-cloud-upload-alt"></i> Document Upload</h3>
+          </div>
+          <div class="header-actions">
+            <button @click="trainAI" class="btn-modern btn-success" :class="{ 'preloader': isTraining }"
+              :disabled="isTraining || uploadedFilesCount === 0">
+              <i class="fas fa-brain"></i>
+              Train AI
+              <span v-if="uploadedFilesCount > 0" class="badge">{{ uploadedFilesCount }}</span>
+            </button>
+            <button @click="retryTraining" class="btn-modern btn-warning" :class="{ 'preloader': isRetrying }"
+              :disabled="isRetrying || failedFilesCount === 0">
+              <i class="fas fa-redo"></i>
+              Retry Train
+              <span v-if="failedFilesCount > 0" class="badge">{{ failedFilesCount }}</span>
+            </button>
+          </div>
         </div>
         <div class="card-body">
-          <form @submit.prevent="sendForm" ref="form" class="upload-form">
-            <div class="upload-section">
-              <div class="sample-link">
-                <a href="/Sample.csv" class="btn-modern btn-secondary btn-sm">
-                  <i class="fas fa-download"></i>
-                  Download Sample CSV
-                </a>
-              </div>
+          <div class="upload-section">
+            <div class="sample-link">
+              <a href="/Sample.csv" class="btn-modern btn-secondary btn-sm">
+                <i class="fas fa-download"></i>
+                Download Sample CSV
+              </a>
+            </div>
 
-              <div class="file-upload-area">
-                <input type="file" name="file" ref="file" accept=".pdf, .csv" @change="chooseFile" class="file-input"
-                  id="fileInput" />
-                <label for="fileInput" class="file-upload-label">
-                  <div class="upload-icon">
-                    <i class="fas fa-cloud-upload-alt"></i>
-                  </div>
-                  <div class="upload-text">
-                    <h4>Choose File to Upload</h4>
-                    <p>Supports PDF and CSV files</p>
-                    <div class="file-name" v-if="nameFile !== 'FAQ File<br> pdf, csv.'" v-html="nameFile"></div>
-                  </div>
-                </label>
+            <!-- Drag & Drop Upload Area -->
+            <div class="upload-zone" :class="{ 'drag-over': isDragOver }" @drop="handleFileDrop"
+              @dragover="handleDragOver" @dragenter="handleDragEnter" @dragleave="handleDragLeave"
+              @click="triggerFileInput">
+              <div class="upload-content">
+                <div class="upload-icon">
+                  <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <h4>Drop files here or click to browse</h4>
+                <p>Supports: PDF, XLS, XLSX, TXT, JPG, PNG, GIF, CSV</p>
+                <input ref="fileInput" type="file" multiple @change="handleFileSelect"
+                  accept=".pdf,.xls,.xlsx,.txt,.jpg,.png,.gif,.csv" class="file-input" />
+                <button class="btn-modern btn-secondary">
+                  Choose Files
+                </button>
               </div>
             </div>
-          </form>
+          </div>
         </div>
       </div>
 
@@ -215,6 +232,61 @@
         </div>
       </div>
     </div>
+
+    <!-- Project Files Card -->
+    <div class="card full-width" v-if="project_id && projectFiles.length">
+      <div class="card-header">
+        <div class="header-left">
+          <h3><i class="fas fa-files"></i> Project Files</h3>
+          <span class="file-count-badge">{{ projectFiles.length }} files</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <!-- Files Grid -->
+        <div class="files-grid">
+          <div v-for="file in projectFiles" :key="file.id" class="file-card">
+            <button @click="() => deleteFile(file)" class="file-delete-btn" title="Delete file">
+              <i class="fas fa-times"></i>
+            </button>
+            <div class="file-icon" :class="getFileIconClass(file.file_type)">
+              <i :class="getFileIcon(file.file_type)"></i>
+            </div>
+            <div class="file-info">
+              <div class="file-header">
+                <h4 class="file-name">{{ file.original_name }}</h4>
+                <span class="file-status-badge" :class="getStatusBadgeClass(file.status)">
+                  <i v-if="file.status === 'processing'" class="fas fa-spinner fa-spin"></i>
+                  <i v-else-if="file.status === 'completed'" class="fas fa-check"></i>
+                  <i v-else-if="file.status === 'failed'" class="fas fa-times"></i>
+                  <i v-else-if="file.status === 'uploaded'" class="fas fa-clock"></i>
+                  {{ getStatusText(file.status) }}
+                </span>
+              </div>
+              <div class="file-meta">
+                <span class="file-type">{{ file.file_type.toUpperCase() }}</span>
+                <span class="file-size">{{ formatFileSize(file.file_size) }}</span>
+              </div>
+            </div>
+            <div class="file-actions">
+              <button @click="() => downloadFile(file)" class="btn-modern btn-icon">
+                <i class="fas fa-download"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty State for Files -->
+        <div v-if="projectFiles.length === 0" class="empty-files-state">
+          <div class="empty-content">
+            <div class="empty-icon">
+              <i class="fas fa-file-upload"></i>
+            </div>
+            <h3>No Files Uploaded</h3>
+            <p>Upload your first document to start training the AI model.</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -251,6 +323,12 @@ export default {
       project: null,
       checks: {},
       reload: false,
+      // New properties for modern upload functionality
+      isDragOver: false,
+      isTraining: false,
+      isRetrying: false,
+      pollingInterval: null,
+      projectFiles: [],
     };
   },
   async created() {
@@ -285,6 +363,14 @@ export default {
             },
           }).href;
       }
+
+      // Load project files for modern upload functionality
+      await this.loadProjectFiles();
+    }
+  },
+  beforeUnmount() {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
     }
   },
   computed: {
@@ -323,6 +409,19 @@ export default {
       }
       return list;
     },
+    // New computed properties for modern upload functionality
+    uploadedFilesCount() {
+      return this.projectFiles.filter(file => file.status === 'uploaded').length;
+    },
+    failedFilesCount() {
+      return this.projectFiles.filter(file => file.status === 'failed').length;
+    },
+    processingFilesCount() {
+      return this.projectFiles.filter(file => file.status === 'processing').length;
+    },
+    completedFilesCount() {
+      return this.projectFiles.filter(file => file.status === 'completed').length;
+    },
     //     getMyDocsList: state => state.myDocsList,
     // getDocsConnectedToProject: state => project_id => state.myDocsListByProject[project_id] ?? [],
   },
@@ -333,10 +432,11 @@ export default {
         this.$store.dispatch("updateProjectSavedKnowledge", {
           project_id: this.project_id,
         });
-        this.$store.dispatch("updateAvailableProjects").then(() => {
+        this.$store.dispatch("updateAvailableProjects").then(async () => {
           if (!this.project_id) {
             this.project_prompt_prefix = null;
             this.project_link = null;
+            this.project = null;
             return;
           }
           const project = this.projectsList[this.project_id];
@@ -353,6 +453,9 @@ export default {
                 },
               }).href;
           }
+
+          // Load project files for the new project
+          await this.loadProjectFiles();
         });
       }
     },
@@ -376,6 +479,177 @@ export default {
       await navigator.clipboard.writeText(text);
 
       this.$toast.success("Copied");
+    },
+
+    // New methods for modern upload functionality
+    async loadProjectFiles() {
+      if (!this.project) return;
+
+      try {
+        // Load files from OpenAI Knowledge API
+        const files = await this.$store.dispatch('loadOpenAIKnowledgeFiles', {
+          projectId: this.project.id
+        });
+
+        // Map the files to match the expected structure
+        this.projectFiles = files.map(file => ({
+          id: file.id,
+          filename: file.filename,
+          original_name: file.filename,
+          file_type: file.file_type,
+          file_size: file.file_size,
+          status: file.status,
+          openai_file_id: file.openai_file_id,
+          createdAt: file.createdAt,
+          updatedAt: file.updatedAt
+        }));
+      } catch (error) {
+        console.error("Failed to load project files:", error);
+        this.$toast.error("Failed to load project files");
+      }
+    },
+
+    triggerFileInput() {
+      this.$refs.fileInput.click();
+    },
+
+    handleDragOver(event) {
+      event.preventDefault();
+      this.isDragOver = true;
+    },
+
+    handleDragEnter(event) {
+      event.preventDefault();
+      this.isDragOver = true;
+    },
+
+    handleDragLeave(event) {
+      event.preventDefault();
+      this.isDragOver = false;
+    },
+
+    handleFileDrop(event) {
+      event.preventDefault();
+      this.isDragOver = false;
+      const files = Array.from(event.dataTransfer.files);
+      this.uploadFiles(files);
+    },
+
+    handleFileSelect(event) {
+      const files = Array.from(event.target.files);
+      this.uploadFiles(files);
+      event.target.value = "";
+    },
+
+    async uploadFiles(files) {
+      if (!this.project) {
+        this.$toast.error("Project not loaded");
+        return;
+      }
+
+      // Check if user is authenticated
+      const profile = this.$store.getters.getProfile;
+      if (!profile) {
+        this.$toast.error("Please log in to upload files");
+        this.$router.push({ name: 'Login' });
+        return;
+      }
+
+      for (const file of files) {
+        try {
+          this.$toast.info(`Uploading ${file.name}...`);
+
+          // Use OpenAI Knowledge upload
+          const response = await this.$store.dispatch('uploadToOpenAIKnowledge', {
+            file: file,
+            projectId: this.project.id
+          });
+
+          console.log('OpenAI Knowledge upload response:', response);
+          this.$toast.success(`${file.name} uploaded successfully`);
+        } catch (error) {
+          console.error("File upload failed:", error);
+
+          if (error.response?.status === 401) {
+            this.$toast.error("Authentication required. Please log in again.");
+            this.$router.push({ name: 'Login' });
+          } else {
+            const errorMessage = error.response?.data?.message ||
+              error.response?.data?.error ||
+              error.response?.statusText ||
+              error.message;
+            this.$toast.error(`Failed to upload ${file.name}: ${errorMessage}`);
+          }
+        }
+      }
+
+      // Refresh files list and start polling for real-time updates
+      await this.loadProjectFiles();
+      this.startStatusPolling();
+    },
+
+    startStatusPolling() {
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+      }
+
+      // Poll every 2 seconds for status updates
+      this.pollingInterval = setInterval(async () => {
+        if (this.isTraining || this.isRetrying || this.processingFilesCount > 0) {
+          await this.loadProjectFiles();
+        } else {
+          // Stop polling if no files are processing
+          this.stopStatusPolling();
+        }
+      }, 2000);
+    },
+
+    stopStatusPolling() {
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+        this.pollingInterval = null;
+      }
+    },
+
+    async retryTraining() {
+      if (!this.project) {
+        this.$toast.error("Project not loaded");
+        return;
+      }
+
+      if (this.failedFilesCount === 0) {
+        this.$toast.info("No failed files to retry.");
+        return;
+      }
+
+      if (!window.confirm(`Retry training ${this.failedFilesCount} failed file(s)?`)) {
+        return;
+      }
+
+      this.isRetrying = true;
+      this.startStatusPolling();
+
+      try {
+        const result = await this.$store.dispatch('retryFailedOpenAIFiles', {
+          projectId: this.project.id
+        });
+
+        this.$toast.success(`Retry completed: ${result.trainedCount} files trained successfully`);
+
+        if (result.failedCount > 0) {
+          this.$toast.warning(`${result.failedCount} files still failed`);
+        }
+
+        // Refresh the files list
+        await this.loadProjectFiles();
+
+      } catch (error) {
+        console.error('Retry training failed:', error);
+        this.$toast.error(`Failed to retry training: ${error.message}`);
+      } finally {
+        this.isRetrying = false;
+        this.stopStatusPolling();
+      }
     },
 
     async chooseFile(e) {
@@ -428,53 +702,44 @@ export default {
     },
 
     async trainAI() {
-      if (!this.project_id) {
-        this.$toast.error(`Please select Project`, { position: "top" });
+      if (!this.project) {
+        this.$toast.error("Project not loaded");
         return;
       }
 
-      // Check if there are pending files
-      const pendingFiles = await this.$store.dispatch('getPendingFiles', {
-        projectId: this.project_id
-      });
-
-      if (pendingFiles.length === 0) {
-        this.$toast.info("No pending files to train. Upload some files first.");
+      if (this.uploadedFilesCount === 0) {
+        this.$toast.info("No uploaded files to train. Upload some files first.");
         return;
       }
 
-      if (!window.confirm(`Train AI with ${pendingFiles.length} pending file(s)?`)) {
+      if (!window.confirm(`Train AI with ${this.uploadedFilesCount} uploaded file(s)?`)) {
         return;
       }
 
-      this.$refs.trainButton.classList.add("preloader");
+      this.isTraining = true;
+      this.startStatusPolling();
 
       try {
-        const result = await this.$store.dispatch('trainFiles', {
-          projectId: this.project_id
+        const result = await this.$store.dispatch('trainOpenAIFiles', {
+          projectId: this.project.id
         });
 
-        this.$toast.success(`Training completed: ${result.data.trainedCount} files trained successfully`);
+        this.$toast.success(`Training completed: ${result.trainedCount} files trained successfully`);
 
-        if (result.data.failedCount > 0) {
-          this.$toast.error(`${result.data.failedCount} files failed to train`);
+        if (result.failedCount > 0) {
+          this.$toast.error(`${result.failedCount} files failed to train`);
         }
 
         // Refresh the files list
-        this.reload = true;
-        await this.$store.dispatch("updateProjectSavedKnowledge", {
-          project_id: this.project_id,
-        });
-        setTimeout(() => {
-          this.reload = false;
-        }, 100);
+        await this.loadProjectFiles();
 
       } catch (error) {
         console.error('Training failed:', error);
         this.$toast.error(`Failed to train files: ${error.message}`);
+      } finally {
+        this.isTraining = false;
+        this.stopStatusPolling();
       }
-
-      this.$refs.trainButton.classList.remove("preloader");
     },
     closeMessage(index) {
       this.message.splice(index, 1);
@@ -648,6 +913,101 @@ Are you sure you want to upload the file?`)
       this.$refs.submit.classList.remove("preloader");
       this.$refs.form.reset();
     },
+
+    // Helper methods for file cards
+    getFileIcon(fileType) {
+      const iconMap = {
+        pdf: "fas fa-file-pdf",
+        xls: "fas fa-file-excel",
+        xlsx: "fas fa-file-excel",
+        txt: "fas fa-file-alt",
+        jpg: "fas fa-file-image",
+        jpeg: "fas fa-file-image",
+        png: "fas fa-file-image",
+        gif: "fas fa-file-image",
+        csv: "fas fa-file-csv",
+      };
+      return iconMap[fileType?.toLowerCase()] || "fas fa-file";
+    },
+
+    getFileIconClass(fileType) {
+      const classMap = {
+        pdf: "file-pdf",
+        xls: "file-excel",
+        xlsx: "file-excel",
+        txt: "file-text",
+        jpg: "file-image",
+        jpeg: "file-image",
+        png: "file-image",
+        gif: "file-image",
+        csv: "file-csv",
+      };
+      return classMap[fileType?.toLowerCase()] || "file-text";
+    },
+
+    getStatusText(status) {
+      const statusMap = {
+        'uploaded': 'Uploaded',
+        'processing': 'Processing',
+        'completed': 'Completed',
+        'failed': 'Failed'
+      };
+      return statusMap[status] || 'Unknown';
+    },
+
+    getStatusBadgeClass(status) {
+      const classMap = {
+        'uploaded': 'status-uploaded',
+        'processing': 'status-processing',
+        'completed': 'status-completed',
+        'failed': 'status-failed'
+      };
+      return classMap[status] || 'status-unknown';
+    },
+
+    formatFileSize(bytes) {
+      if (!bytes) return "0 B";
+      const k = 1024;
+      const sizes = ["B", "KB", "MB", "GB"];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+    },
+
+    async deleteFile(file) {
+      if (confirm(`Are you sure you want to delete "${file.original_name}"?`)) {
+        try {
+          await this.$store.dispatch('deleteOpenAIFile', {
+            projectId: this.project.id,
+            fileId: file.openai_file_id
+          });
+          this.$toast.success("File deleted successfully");
+          await this.loadProjectFiles();
+        } catch (error) {
+          console.error("Failed to delete file:", error);
+          this.$toast.error("Failed to delete file");
+        }
+      }
+    },
+
+    async downloadFile(file) {
+      try {
+        const response = await axios.get(`/api/files/${file.id}/download`, {
+          responseType: "blob",
+        });
+
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", file.original_name);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error("Failed to download file:", error);
+        this.$toast.error("Failed to download file");
+      }
+    },
   },
 };
 </script>
@@ -709,6 +1069,47 @@ Are you sure you want to upload the file?`)
         justify-content: space-between;
         align-items: center;
 
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+
+          h3 {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0;
+
+            i {
+              color: var(--primary-blue);
+            }
+          }
+        }
+
+        .header-actions {
+          display: flex;
+          gap: 0.75rem;
+
+          .btn-modern {
+            position: relative;
+
+            .badge {
+              position: absolute;
+              top: -0.25rem;
+              right: -0.25rem;
+              background-color: rgba(255, 255, 255, 0.9);
+              color: inherit;
+              font-size: 0.625rem;
+              font-weight: 600;
+              padding: 0.125rem 0.375rem;
+              border-radius: 0.75rem;
+              min-width: 1.25rem;
+              text-align: center;
+              border: 1px solid currentColor;
+            }
+          }
+        }
+
         h3 {
           display: flex;
           align-items: center;
@@ -730,6 +1131,10 @@ Are you sure you want to upload the file?`)
         }
       }
     }
+  }
+
+  .header-left {
+    display: flex;
   }
 
   // Project URL Section
@@ -761,6 +1166,54 @@ Are you sure you want to upload the file?`)
   .upload-section {
     .sample-link {
       margin-bottom: 1.5rem;
+    }
+
+    // Modern drag & drop upload zone
+    .upload-zone {
+      margin: 1.5rem 0;
+      border: 2px dashed var(--gray-300);
+      border-radius: 0.5rem;
+      padding: 2rem;
+      text-align: center;
+      transition: all 0.15s ease-in-out;
+      cursor: pointer;
+
+      &.drag-over {
+        border-color: var(--primary-blue);
+        background-color: rgba(37, 99, 235, 0.05);
+      }
+
+      &:hover {
+        border-color: var(--primary-blue);
+        background-color: var(--gray-50);
+      }
+
+      .upload-content {
+        .upload-icon {
+          font-size: 3rem;
+          color: var(--gray-400);
+          margin-bottom: 1rem;
+        }
+
+        h4 {
+          margin: 0 0 0.5rem 0;
+          color: var(--gray-700);
+          font-size: 1.125rem;
+          font-weight: 600;
+        }
+
+        p {
+          margin: 0 0 1.5rem 0;
+          color: var(--gray-600);
+          font-size: 0.875rem;
+        }
+
+        .file-input {
+          position: absolute;
+          opacity: 0;
+          pointer-events: none;
+        }
+      }
     }
 
     .file-upload-area {
@@ -1036,6 +1489,233 @@ Are you sure you want to upload the file?`)
       gap: 0.75rem;
     }
   }
+}
+
+// File Cards Styling
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+
+  .file-card {
+    border: 1px solid var(--gray-200);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.15s ease-in-out;
+    position: relative;
+    background: white;
+
+    &:hover {
+      border-color: var(--primary-blue);
+      box-shadow: 0 1px 3px 0 rgba(37, 99, 235, 0.1);
+
+      .file-delete-btn {
+        opacity: 1;
+      }
+    }
+
+    .file-delete-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      width: 1.5rem;
+      height: 1.5rem;
+      border: none;
+      background-color: rgba(239, 68, 68, 0.9);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transition: all 0.2s ease;
+      font-size: 0.75rem;
+      z-index: 10;
+
+      &:hover {
+        background-color: #dc2626;
+        transform: scale(1.1);
+      }
+
+      &:active {
+        transform: scale(0.95);
+      }
+
+      i {
+        font-size: 0.625rem;
+      }
+    }
+
+    .file-icon {
+      font-size: 1.5rem;
+      width: 2.5rem;
+      height: 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.375rem;
+
+      &.file-pdf {
+        color: #dc2626;
+        background-color: rgba(220, 38, 38, 0.1);
+      }
+
+      &.file-excel {
+        color: #16a34a;
+        background-color: rgba(22, 163, 74, 0.1);
+      }
+
+      &.file-text {
+        color: #2563eb;
+        background-color: rgba(37, 99, 235, 0.1);
+      }
+
+      &.file-image {
+        color: #7c3aed;
+        background-color: rgba(124, 58, 237, 0.1);
+      }
+
+      &.file-csv {
+        color: #059669;
+        background-color: rgba(5, 150, 105, 0.1);
+      }
+    }
+
+    .file-info {
+      flex: 1;
+      min-width: 0;
+
+      .file-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.25rem;
+        gap: 0.5rem;
+      }
+
+      .file-name {
+        margin: 0;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        line-height: 1.25;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+      }
+
+      .file-status-badge {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.125rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        white-space: nowrap;
+
+        &.status-uploaded {
+          background-color: rgba(59, 130, 246, 0.1);
+          color: #1d4ed8;
+        }
+
+        &.status-processing {
+          background-color: rgba(245, 158, 11, 0.1);
+          color: #d97706;
+        }
+
+        &.status-completed {
+          background-color: rgba(34, 197, 94, 0.1);
+          color: #16a34a;
+        }
+
+        &.status-failed {
+          background-color: rgba(239, 68, 68, 0.1);
+          color: #dc2626;
+        }
+
+        i {
+          font-size: 0.75rem;
+        }
+      }
+
+      .file-meta {
+        display: flex;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        color: var(--gray-600);
+        flex-wrap: wrap;
+
+        span {
+          padding: 0.125rem 0.375rem;
+          background-color: var(--gray-100);
+          border-radius: 0.25rem;
+        }
+      }
+    }
+
+    .file-actions {
+      display: flex;
+      gap: 0.25rem;
+
+      .btn-icon {
+        width: 2rem;
+        height: 2rem;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.25rem;
+        font-size: 0.875rem;
+      }
+    }
+  }
+}
+
+.empty-files-state {
+  padding: 3rem 2rem;
+  text-align: center;
+
+  .empty-content {
+    max-width: 300px;
+    margin: 0 auto;
+
+    .empty-icon {
+      font-size: 3rem;
+      color: var(--gray-300);
+      margin-bottom: 1rem;
+    }
+
+    h3 {
+      margin: 0 0 0.5rem 0;
+      color: var(--gray-700);
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+
+    p {
+      margin: 0;
+      color: var(--gray-500);
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+  }
+}
+
+.file-count-badge {
+  background-color: var(--primary-blue);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 1rem;
 }
 
 // Loading state for buttons
