@@ -1,51 +1,29 @@
 <template>
 	<nav class="modern-nav">
 		<div class="nav-container">
-			<router-link 
-				v-if="!hideTrain" 
-				:to="{ name: 'home' }" 
-				class="nav-item" 
-				active-class="active"
-			>
+			<router-link v-if="!hideTrain" :to="{ name: 'home' }" class="nav-item" active-class="active">
 				<i class="fas fa-graduation-cap"></i>
 				<span>{{ $t('train') }}</span>
 			</router-link>
-			
-			<router-link 
-				v-if="!hideTrain" 
-				:to="{ name: 'chat' }" 
-				:class="{ active: $route.name === 'chat-only' }" 
-				class="nav-item"
-				active-class="active"
-			>
+
+			<router-link v-if="!hideTrain" :to="{ name: 'chat' }" :class="{ active: $route.name === 'chat-only' }"
+				class="nav-item" active-class="active">
 				<i class="fas fa-comments"></i>
-				<span>{{ $t('Test Chat') }}</span>
+				<span>{{ $t('Chat') }}</span>
 			</router-link>
-			
-			<router-link 
-				v-if="PROJECT_SHOW" 
-				:to="{ name: 'projects' }" 
-				class="nav-item" 
-				active-class="active"
-			>
+
+			<router-link v-if="PROJECT_SHOW" :to="{ name: 'projects' }" class="nav-item" active-class="active">
 				<i class="fas fa-folder-open"></i>
 				<span>{{ $t('projects') }}</span>
 			</router-link>
-			
-			<router-link 
-				v-if="!hideTrain && CHATS_HISTORY_SHOW" 
-				:to="{ name: 'chats-history' }" 
-				class="nav-item"
-				active-class="active"
-			>
+
+			<router-link v-if="!hideTrain && CHATS_HISTORY_SHOW" :to="{ name: 'chats-history' }" class="nav-item"
+				active-class="active">
 				<i class="fas fa-history"></i>
 				<span>{{ $t('chats-history') }}</span>
 			</router-link>
-			
-			<button 
-				@click="$store.dispatch('logOut')" 
-				class="nav-item logout-item"
-			>
+
+			<button @click="$store.dispatch('logOut')" class="nav-item logout-item">
 				<i class="fas fa-sign-out-alt"></i>
 				<span>Logout</span>
 			</button>

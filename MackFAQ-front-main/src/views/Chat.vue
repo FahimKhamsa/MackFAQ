@@ -247,7 +247,7 @@ export default {
 				this.chatHistory = Object.values(response.data.data).map(conv => ({
 					id: conv.id,
 					title: conv.name,
-					timestamp: new Date(parseInt(conv.createdAt))
+					timestamp: new Date(conv.updatedAt)
 				}));
 			} catch (error) {
 				console.error('Failed to load chat history:', error);
@@ -276,7 +276,8 @@ export default {
 					timestamp: new Date(msg.createdAt),
 					sources: [], // Add sources if available in your backend
 					sopReferences: [] // Add SOP references if available
-				}));
+				}))
+					.sort((a, b) => a.timestamp - b.timestamp);
 
 				// Update current conversation ID
 				this.currentConversationId = conversationId;
@@ -653,7 +654,7 @@ export default {
 /* Chat Messages Area */
 .chat-messages {
 	flex: 1;
-	max-width: 900px;
+	max-width: 1024px;
 	margin: 0 auto;
 	width: 100%;
 	padding: 2rem;
@@ -696,8 +697,11 @@ export default {
 		display: flex;
 		gap: 1rem;
 		position: relative;
+		max-width: 95%;
+		width: 100%;
 
 		&.user-message {
+			left: 50px;
 			justify-content: flex-end;
 
 			.message-avatar {

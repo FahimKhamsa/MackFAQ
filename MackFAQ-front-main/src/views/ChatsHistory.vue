@@ -851,15 +851,15 @@ table.chats-list {
     }
 }
 
-@keyframes right {
-    0% {
-        right: -300px;
-    }
+// @keyframes right {
+//     0% {
+//         right: -300px;
+//     }
 
-    100% {
-        right: 15px;
-    }
-}
+//     100% {
+//         right: 15px;
+//     }
+// }
 
 .page-train {
     // background: url(../assets/img/bg-train.jpeg) no-repeat center top;
