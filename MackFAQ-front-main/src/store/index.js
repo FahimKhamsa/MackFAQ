@@ -289,9 +289,15 @@ export default createStore({
 
     async renameProject(context, { projectId, newName }) {
       try {
+        const profile = context.getters.getProfile;
+        if (!profile || !profile.id) {
+          throw new Error('User profile not loaded or missing user ID');
+        }
+
         const response = await axiosConfigured.post(API_URL + '/projects/management/update', {
           id: projectId,
-          name: newName
+          name: newName,
+          user_id: profile.id
         });
 
         // Refresh the projects list after successful rename

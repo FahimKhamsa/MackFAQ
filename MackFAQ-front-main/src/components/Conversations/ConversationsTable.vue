@@ -22,8 +22,14 @@
                   <i class="fas fa-comments"></i>
                 </div>
                 <div v-if="editingConversation === conversation.id" class="conversation-name-edit">
-                  <input v-model="editingName" @keydown.enter="saveRename(conversation)" @keydown.escape="cancelRename"
-                    @blur="saveRename(conversation)" ref="editInput" class="conversation-name-input">
+                  <div class="input-wrapper">
+                    <input v-model="editingName" @keydown.enter="saveRename(conversation)"
+                      @keydown.escape="cancelRename" @blur="saveRename(conversation)" ref="editInput"
+                      class="conversation-name-input" :disabled="renamingConversation === conversation.id">
+                    <div v-if="renamingConversation === conversation.id" class="loading-spinner">
+                      <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                  </div>
                 </div>
                 <span v-else class="conversation-name" @dblclick="startRename(conversation)">
                   {{ conversation.name || `Conversation ${conversation.id}` }}
@@ -80,6 +86,10 @@
 </template>
 
 <script>
+import axiosConfigured from '@/axios';
+
+const API_URL = process.env.VUE_APP_API_HOST;
+
 export default {
   name: 'ConversationsTable',
   props: {
@@ -92,13 +102,14 @@ export default {
       default: null
     }
   },
-  emits: ['conversation-selected', 'action-triggered'],
+  emits: ['conversation-selected', 'action-triggered', 'conversation-renamed'],
   data() {
     return {
       openDropdown: null,
       editingConversation: null,
       editingName: '',
-      originalName: ''
+      originalName: '',
+      renamingConversation: null
     };
   },
   mounted() {
@@ -123,7 +134,11 @@ export default {
 
     handleAction(action, conversation) {
       this.closeDropdown();
-      this.$emit('action-triggered', { action, conversation });
+      if (action === 'rename') {
+        this.startRename(conversation);
+      } else {
+        this.$emit('action-triggered', { action, conversation });
+      }
     },
 
     getQuestionsCount(conversation) {
@@ -150,7 +165,7 @@ export default {
 
     startRename(conversation) {
       this.editingConversation = conversation.id;
-      this.editingName = conversation.messages_slug || `Conversation ${conversation.id}`;
+      this.editingName = conversation.name || conversation.messages_slug || `Conversation ${conversation.id}`;
       this.originalName = this.editingName;
       this.$nextTick(() => {
         if (this.$refs.editInput && this.$refs.editInput[0]) {
@@ -160,15 +175,64 @@ export default {
       });
     },
 
-    saveRename(conversation) {
-      if (this.editingName.trim() && this.editingName.trim() !== this.originalName) {
-        this.$emit('action-triggered', {
-          action: 'rename',
-          conversation: conversation,
-          newName: this.editingName.trim()
-        });
+    async saveRename(conversation) {
+      const newName = this.editingName.trim();
+
+      // Don't save if name is empty or unchanged
+      if (!newName || newName === this.originalName) {
+        this.cancelRename();
+        return;
       }
-      this.cancelRename();
+
+      // Don't save if already renaming this conversation
+      if (this.renamingConversation === conversation.id) {
+        return;
+      }
+
+      try {
+        this.renamingConversation = conversation.id;
+
+        const response = await axiosConfigured.put(API_URL + '/conversations/rename-conversation', {
+          conversationId: conversation.id,
+          name: newName
+        });
+
+        if (response.data.success) {
+          // Show success message
+          if (this.$toast) {
+            this.$toast.success('Conversation renamed successfully', { position: 'top' });
+          }
+
+          // Update the conversation name locally
+          conversation.name = newName;
+          conversation.messages_slug = newName;
+
+          // Emit event to notify parent component
+          this.$emit('conversation-renamed', {
+            conversationId: conversation.id,
+            newName: newName
+          });
+
+        } else {
+          throw new Error(response.data.message || 'Failed to rename conversation');
+        }
+      } catch (error) {
+        console.error('Failed to rename conversation:', error);
+
+        // Show error message
+        if (this.$toast) {
+          this.$toast.error(error.response?.data?.message || error.message || 'Failed to rename conversation', { position: 'top' });
+        } else {
+          // Fallback to alert if toast is not available
+          alert('Failed to rename conversation: ' + (error.response?.data?.message || error.message));
+        }
+
+        // Reset the name to original
+        this.editingName = this.originalName;
+      } finally {
+        this.renamingConversation = null;
+        this.cancelRename();
+      }
     },
 
     cancelRename() {
@@ -187,10 +251,10 @@ export default {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
 }
 
-.table-wrapper {
-  /* Remove overflow-x: auto to prevent internal table scrolling */
-  /* Let the page scroll instead */
-}
+// .table-wrapper {
+//   /* Remove overflow-x: auto to prevent internal table scrolling */
+//   /* Let the page scroll instead */
+// }
 
 .conversations-table {
   width: 100%;
@@ -306,6 +370,12 @@ export default {
 
   .conversation-name-edit {
     flex: 1;
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
   }
 
   .conversation-name-input {
@@ -323,6 +393,24 @@ export default {
     &:focus {
       border-color: var(--primary-blue);
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    &:disabled {
+      background-color: var(--gray-50);
+      color: var(--gray-500);
+      cursor: not-allowed;
+    }
+  }
+
+  .loading-spinner {
+    position: absolute;
+    right: 0.5rem;
+    color: var(--primary-blue);
+    font-size: 0.75rem;
+    pointer-events: none;
+
+    i {
+      animation: spin 1s linear infinite;
     }
   }
 }
@@ -419,6 +507,16 @@ export default {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
   }
 }
 
