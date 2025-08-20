@@ -128,8 +128,13 @@ export class ConversationsService {
       messages_slug: string;
     };
   }> {
+    // Handle both project-specific and general (null project_id) conversations
+    const whereClause = projectId
+      ? { project_id: projectId }
+      : { project_id: null };
+
     const conversations = await this.conversationModel.findAll({
-      where: { project_id: projectId },
+      where: whereClause,
       order: [['createdAt', 'DESC']],
     });
 

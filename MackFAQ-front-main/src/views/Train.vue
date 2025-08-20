@@ -43,7 +43,12 @@
           <div class="card-body">
             <div class="form-group">
               <label class="form-label">Select Project</label>
-              <ListOfProjects :allowEmpty="true" v-model="project_id"></ListOfProjects>
+              <select v-model="project_id" class="form-select">
+                <option value="">General Training</option>
+                <option v-for="project in projects" :key="project.id" :value="project.id">
+                  {{ project.name }}
+                </option>
+              </select>
             </div>
 
             <div v-if="project_id" class="project-url-section">
@@ -234,10 +239,10 @@
     </div>
 
     <!-- Project Files Card -->
-    <div class="card full-width" v-if="project_id && projectFiles.length">
+    <div class="card full-width" v-if="projectFiles.length">
       <div class="card-header">
         <div class="header-left">
-          <h3><i class="fas fa-files"></i> Project Files</h3>
+          <h3><i class="fas fa-files"></i> {{ project_id && project ? 'Project Files' : 'General Files' }}</h3>
           <span class="file-count-badge">{{ projectFiles.length }} files</span>
         </div>
       </div>
@@ -363,10 +368,10 @@ export default {
             },
           }).href;
       }
-
-      // Load project files for modern upload functionality
-      await this.loadProjectFiles();
     }
+
+    // Load files (either project-specific or general)
+    await this.loadProjectFiles();
   },
   beforeUnmount() {
     if (this.pollingInterval) {
@@ -421,6 +426,9 @@ export default {
     },
     completedFilesCount() {
       return this.projectFiles.filter(file => file.status === 'completed').length;
+    },
+    projects() {
+      return this.$store.getters.getAvailableProjects;
     },
     //     getMyDocsList: state => state.myDocsList,
     // getDocsConnectedToProject: state => project_id => state.myDocsListByProject[project_id] ?? [],
@@ -483,13 +491,17 @@ export default {
 
     // New methods for modern upload functionality
     async loadProjectFiles() {
-      if (!this.project) return;
-
       try {
-        // Load files from OpenAI Knowledge API
-        const files = await this.$store.dispatch('loadOpenAIKnowledgeFiles', {
-          projectId: this.project.id
-        });
+        let files;
+        if (this.project_id && this.project) {
+          // Load files from specific project
+          files = await this.$store.dispatch('loadOpenAIKnowledgeFiles', {
+            projectId: this.project.id
+          });
+        } else {
+          // Load general files (no project selected)
+          files = await this.$store.dispatch('loadGeneralFiles');
+        }
 
         // Map the files to match the expected structure
         this.projectFiles = files.map(file => ({
@@ -504,8 +516,8 @@ export default {
           updatedAt: file.updatedAt
         }));
       } catch (error) {
-        console.error("Failed to load project files:", error);
-        this.$toast.error("Failed to load project files");
+        console.error("Failed to load files:", error);
+        this.$toast.error("Failed to load files");
       }
     },
 
@@ -542,11 +554,6 @@ export default {
     },
 
     async uploadFiles(files) {
-      if (!this.project) {
-        this.$toast.error("Project not loaded");
-        return;
-      }
-
       // Check if user is authenticated
       const profile = this.$store.getters.getProfile;
       if (!profile) {
@@ -559,13 +566,21 @@ export default {
         try {
           this.$toast.info(`Uploading ${file.name}...`);
 
-          // Use OpenAI Knowledge upload
-          const response = await this.$store.dispatch('uploadToOpenAIKnowledge', {
-            file: file,
-            projectId: this.project.id
-          });
+          let response;
+          if (this.project_id && this.project) {
+            // Upload to specific project
+            response = await this.$store.dispatch('uploadToOpenAIKnowledge', {
+              file: file,
+              projectId: this.project.id
+            });
+          } else {
+            // Upload to general knowledge (no project selected)
+            response = await this.$store.dispatch('uploadToGeneralKnowledge', {
+              file: file
+            });
+          }
 
-          console.log('OpenAI Knowledge upload response:', response);
+          console.log('Upload response:', response);
           this.$toast.success(`${file.name} uploaded successfully`);
         } catch (error) {
           console.error("File upload failed:", error);
@@ -612,17 +627,13 @@ export default {
     },
 
     async retryTraining() {
-      if (!this.project) {
-        this.$toast.error("Project not loaded");
-        return;
-      }
-
       if (this.failedFilesCount === 0) {
         this.$toast.info("No failed files to retry.");
         return;
       }
 
-      if (!window.confirm(`Retry training ${this.failedFilesCount} failed file(s)?`)) {
+      const contextType = this.project_id && this.project ? `project "${this.project.name}"` : "general knowledge";
+      if (!window.confirm(`Retry training ${this.failedFilesCount} failed file(s) for ${contextType}?`)) {
         return;
       }
 
@@ -630,9 +641,16 @@ export default {
       this.startStatusPolling();
 
       try {
-        const result = await this.$store.dispatch('retryFailedOpenAIFiles', {
-          projectId: this.project.id
-        });
+        let result;
+        if (this.project_id && this.project) {
+          // Retry for specific project
+          result = await this.$store.dispatch('retryFailedOpenAIFiles', {
+            projectId: this.project.id
+          });
+        } else {
+          // Retry for general knowledge - we'll need to add this action to the store
+          result = await this.$store.dispatch('retryFailedGeneralFiles');
+        }
 
         this.$toast.success(`Retry completed: ${result.trainedCount} files trained successfully`);
 
@@ -702,17 +720,13 @@ export default {
     },
 
     async trainAI() {
-      if (!this.project) {
-        this.$toast.error("Project not loaded");
-        return;
-      }
-
       if (this.uploadedFilesCount === 0) {
         this.$toast.info("No uploaded files to train. Upload some files first.");
         return;
       }
 
-      if (!window.confirm(`Train AI with ${this.uploadedFilesCount} uploaded file(s)?`)) {
+      const contextType = this.project_id && this.project ? `project "${this.project.name}"` : "general knowledge";
+      if (!window.confirm(`Train AI with ${this.uploadedFilesCount} uploaded file(s) for ${contextType}?`)) {
         return;
       }
 
@@ -720,9 +734,16 @@ export default {
       this.startStatusPolling();
 
       try {
-        const result = await this.$store.dispatch('trainOpenAIFiles', {
-          projectId: this.project.id
-        });
+        let result;
+        if (this.project_id && this.project) {
+          // Train for specific project
+          result = await this.$store.dispatch('trainOpenAIFiles', {
+            projectId: this.project.id
+          });
+        } else {
+          // Train for general knowledge
+          result = await this.$store.dispatch('trainGeneralFiles');
+        }
 
         this.$toast.success(`Training completed: ${result.trainedCount} files trained successfully`);
 
@@ -976,10 +997,18 @@ Are you sure you want to upload the file?`)
     async deleteFile(file) {
       if (confirm(`Are you sure you want to delete "${file.original_name}"?`)) {
         try {
-          await this.$store.dispatch('deleteOpenAIFile', {
-            projectId: this.project.id,
-            fileId: file.openai_file_id
-          });
+          if (this.project_id && this.project) {
+            // Delete project-specific file
+            await this.$store.dispatch('deleteOpenAIFile', {
+              projectId: this.project.id,
+              fileId: file.openai_file_id
+            });
+          } else {
+            // Delete general file
+            await this.$store.dispatch('deleteGeneralFile', {
+              fileId: file.openai_file_id
+            });
+          }
           this.$toast.success("File deleted successfully");
           await this.loadProjectFiles();
         } catch (error) {

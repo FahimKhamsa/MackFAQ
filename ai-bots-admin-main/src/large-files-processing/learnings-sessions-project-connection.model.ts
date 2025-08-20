@@ -33,7 +33,8 @@ export class LearningSessionProjectConnection extends Model<
 
   @Column({
     type: DataType.UUID,
-    allowNull: false,
+    allowNull: true,
+    defaultValue: null,
   })
   project_id: string;
 

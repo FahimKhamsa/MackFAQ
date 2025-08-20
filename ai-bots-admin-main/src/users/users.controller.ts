@@ -20,9 +20,11 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async me(@Req() req: Request) {
     const user = (req as any).user;
-    const userWithBot = await this.userService.findByIdWithBot(user.id);
+    const userWithAssistant = await this.userService.getUserWithAssistant(
+      user.id,
+    );
 
-    if (!userWithBot) {
+    if (!userWithAssistant) {
       return {
         status: true,
         user: user,
@@ -31,8 +33,8 @@ export class UsersController {
 
     return {
       status: true,
-      user: userWithBot.user,
-      default_bot: userWithBot.default_bot,
+      user: userWithAssistant.user,
+      default_assistant: userWithAssistant.default_assistant,
     };
   }
 }

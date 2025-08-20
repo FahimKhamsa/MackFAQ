@@ -13,7 +13,7 @@
 					<div class="control-group">
 						<label class="control-label">Project Context</label>
 						<select v-model="selectedProject" @change="updateChatContext" class="context-select">
-							<option value="">General Knowledge</option>
+							<option value="">General Chat</option>
 							<option v-for="project in projects" :key="project.id" :value="project.id">
 								{{ project.name }}
 							</option>
@@ -124,14 +124,10 @@
 					<span>Loading conversations...</span>
 				</div>
 
-				<div v-else-if="!chatHistory.length && selectedProject" class="empty-state">
+				<div v-else-if="!chatHistory.length" class="empty-state">
 					<i class="fas fa-comments"></i>
-					<span>No conversations yet</span>
-				</div>
-
-				<div v-else-if="!selectedProject" class="empty-state">
-					<i class="fas fa-folder"></i>
-					<span>Select a project to view history</span>
+					<span v-if="selectedProject">No project conversations yet</span>
+					<span v-else>No general conversations yet</span>
 				</div>
 
 				<ul v-else class="history-list">
@@ -231,17 +227,18 @@ export default {
 		toggleHistory() {
 			this.isHistoryCollapsed = !this.isHistoryCollapsed;
 		},
-		// Load chat history for the selected project
+		// Load chat history for the selected project or general chat
 		async loadChatHistory() {
-			if (!this.selectedProject) {
-				this.chatHistory = [];
-				return;
-			}
-
 			this.isLoadingHistory = true;
 			try {
+				const params = {};
+				if (this.selectedProject) {
+					params.project_id = this.selectedProject;
+				}
+				// For general chat, we don't pass project_id (it will be null)
+
 				const response = await axios.get('/conversations/list-of-conversations', {
-					params: { project_id: this.selectedProject }
+					params: params
 				});
 
 				this.chatHistory = Object.values(response.data.data).map(conv => ({

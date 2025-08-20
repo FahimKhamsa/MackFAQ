@@ -44,6 +44,7 @@
         </div>
         <select v-else v-model="value" placeholder="Select project">
             <option :disabled="!allowEmpty" :value="0">Select project</option>
+            <option v-if="allowGeneral" value="general">General Chat</option>
             <option v-for="(project, index) of projectsList" :key="project.id" :value="project.id">
                 {{ project.name }}
             </option>
@@ -65,7 +66,7 @@ export default {
             }
         }
     },
-    props: ['modelValue', 'typeSelect', 'allowEmpty'],
+    props: ['modelValue', 'typeSelect', 'allowEmpty', 'allowGeneral'],
     computed: {
         projectsList() {
             return this.$store.getters.getAvailableProjects.sort((a, b) => b.id - a.id);
@@ -204,9 +205,9 @@ table {
         padding: 20px;
     }
 
-    td:last-child {
-        // max-width: 50px;
-    }
+    // td:last-child {
+    //     max-width: 50px;
+    // }
 }
 </style>
 

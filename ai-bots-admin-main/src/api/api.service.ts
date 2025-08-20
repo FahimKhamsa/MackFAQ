@@ -106,8 +106,8 @@ export class ApiService {
       crypto.randomBytes(5).toString('base64url') +
       '-' +
       Buffer.concat([
-        Buffer.from(longToByteArray(+new Date())),
-        crypto.randomBytes(5),
+        new Uint8Array(Buffer.from(longToByteArray(+new Date()))),
+        new Uint8Array(crypto.randomBytes(5)),
       ]).toString('base64url')
     );
   }
@@ -504,7 +504,7 @@ export class ApiService {
       // conversationId = crypto.randomBytes(20).toString('base64url') + crypto.randomUUID() + '-' + Buffer.from((+new Date()).toString()).toString('base64url');
       conversationId = crypto
         .createHash('md5')
-        .update(crypto.randomBytes(100))
+        .update(new Uint8Array(crypto.randomBytes(100)))
         .update(Date.now().toString())
         .digest('base64url');
     }
@@ -583,24 +583,33 @@ export class ApiService {
       const bot = await this.botModel.findByPk(params.bot_id);
 
       if (bot) {
-        if (!params.project_id) {
-          params.project_id = (
-            await this.defaultProject({ bot_id: bot.id, user_id: bot.user_id })
-          ).id;
+        // Only create default project if project_id is explicitly requested but not provided
+        // For general chat, we allow project_id to remain null
+        if (params.project_id) {
+          project = await this.projectsService.getProjectById(
+            params.project_id,
+          );
         }
 
-        project = await this.projectsService.getProjectById(params.project_id);
+        // Get user info - for general chat, use bot's user_id
+        let user;
+        if (params.project_id) {
+          user = await this.identityService.getUserByProjectId(
+            params.project_id,
+          );
+        } else {
+          // For general chat, get user directly from bot's user_id
+          user = await this.sequelize.models.UserModel.findByPk(bot.user_id);
+        }
 
-        const user = await this.identityService.getUserByProjectId(
-          params.project_id,
-        );
-
-        config._userLabel = user.username || this._userLabel;
+        config._userLabel = user?.username || this._userLabel;
         config._assistantLabel = this._assistantLabel;
-        config._promptPrefix = project?.prompt_prefix || '';
+        config._promptPrefix =
+          project?.prompt_prefix || bot.prompt_prefix || '';
         config._useLocal = false;
         config._useLocalWithGPT = false;
-        config._answerPrePromptPrefix = project?.prompt_prefix || '';
+        config._answerPrePromptPrefix =
+          project?.prompt_prefix || bot.prompt_prefix || '';
       }
 
       const langs = {
@@ -872,6 +881,8 @@ export class ApiService {
     params: { bot_id: string; project_id?: string },
   ) {
     console.log('Upload file only', params);
+    let userId: string;
+
     if (params.project_id) {
       const project = await this.projectsService.getProjectById(
         params.project_id,
@@ -879,10 +890,18 @@ export class ApiService {
       if (!project) {
         throw new BadRequestException('Project is not found');
       }
+      userId = await this.identityService.getUserIdByProjectId(
+        params.project_id,
+      );
+    } else {
+      // For general uploads, get user ID from bot
+      const bot = await this.botModel.findByPk(params.bot_id);
+      if (!bot) {
+        throw new BadRequestException('Bot is not found');
+      }
+      userId = bot.user_id;
     }
-    const userId = await this.identityService.getUserIdByProjectId(
-      params.project_id,
-    );
+
     return await this.largeFilesProcessingService.uploadFileOnly(file, {
       ...params,
       project_id: params.project_id ?? null,
@@ -1385,7 +1404,7 @@ export class ApiService {
     if (!conversationId) {
       conversationId = crypto
         .createHash('md5')
-        .update(crypto.randomBytes(100))
+        .update(new Uint8Array(crypto.randomBytes(100)))
         .update(Date.now().toString())
         .digest('base64url');
       // conversationId = crypto.randomBytes(20).toString('base64url') + crypto.randomUUID() + '-' + Buffer.from((+new Date()).toString()).toString('base64url');
@@ -1463,7 +1482,7 @@ export class ApiService {
     id: string;
     messages_slug?: string;
   }) {
-    let isUpdated = false;
+    // let isUpdated = false;
 
     if (!conversation.messages_slug) {
       const fullConversationData = await this.getConversationHistory(
@@ -1472,9 +1491,9 @@ export class ApiService {
       conversation.messages_slug = await this.generateConversationMessagesSlug(
         fullConversationData.messages,
       );
-      if (conversation.messages_slug) {
-        isUpdated = true;
-      }
+      // if (conversation.messages_slug) {
+      //   isUpdated = true;
+      // }
     }
 
     // Note: saveConversationMetadata is no longer needed with database storage

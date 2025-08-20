@@ -65,7 +65,7 @@ export class ConversationsController {
   }
 
   @Get('list-of-conversations')
-  async getListOfConversations(@Query() query: { project_id: string }) {
+  async getListOfConversations(@Query() query: { project_id?: string }) {
     return {
       data: await this.conversationsService.getConversationsList(
         query.project_id,

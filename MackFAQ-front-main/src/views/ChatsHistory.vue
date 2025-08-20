@@ -16,7 +16,7 @@
                 <div class="card-body">
                     <div class="form-group">
                         <label class="form-label">Select Project</label>
-                        <ListOfProjects :allowEmpty="true" v-model="project_id"></ListOfProjects>
+                        <ListOfProjects v-model="project_id" :allowGeneral="true" />
                     </div>
                 </div>
             </div>
@@ -156,6 +156,7 @@ export default {
             showDeleteModal: false,
             conversationToDelete: null,
             isDeleting: false,
+            generalConversations: [], // For storing general chat conversations
 
             chatsTimer: null,
         }
@@ -179,12 +180,16 @@ export default {
     },
     computed: {
         savedTrainingData() {
-            return this.project_id && this.$store.getters.getProjectsTrainingData(this.project_id) || '';
+            return this.project_id && this.project_id !== 'general' && this.$store.getters.getProjectsTrainingData(this.project_id) || '';
         },
         currentChat() {
             return this.currentChatId && this.$store.getters.getConversationData(this.currentChatId);
         },
         allChatsList() {
+            if (this.project_id === 'general') {
+                // For general chat, we need to load conversations directly via API
+                return this.generalConversations || [];
+            }
             return this.project_id && this.$store.getters.getProjectsConversationsList(this.project_id);
         },
         projectsList() {
@@ -210,20 +215,27 @@ export default {
                 this.isLoadingConversations = true;
                 this.selectedConversation = null;
 
-                // Load project data and conversations
-                Promise.all([
-                    this.$store.dispatch('updateProjectTrainingData', { project_id: newValue }),
-                    this.$store.dispatch('updateProjectConversationsList', { project_id: newValue }),
-                    this.$store.dispatch('updateAvailableProjects')
-                ]).then(() => {
-                    if (!this.project_id) {
-                        this.project_prompt_prefix = null;
-                        return;
-                    }
-                    this.project_prompt_prefix = this.projectsList[this.project_id]?.prompt_prefix || '';
-                }).finally(() => {
-                    this.isLoadingConversations = false;
-                });
+                if (newValue === 'general') {
+                    // Load general conversations directly via API
+                    this.loadGeneralConversations().finally(() => {
+                        this.isLoadingConversations = false;
+                    });
+                } else {
+                    // Load project data and conversations
+                    Promise.all([
+                        this.$store.dispatch('updateProjectTrainingData', { project_id: newValue }),
+                        this.$store.dispatch('updateProjectConversationsList', { project_id: newValue }),
+                        this.$store.dispatch('updateAvailableProjects')
+                    ]).then(() => {
+                        if (!this.project_id || this.project_id === 'general') {
+                            this.project_prompt_prefix = null;
+                            return;
+                        }
+                        this.project_prompt_prefix = this.projectsList[this.project_id]?.prompt_prefix || '';
+                    }).finally(() => {
+                        this.isLoadingConversations = false;
+                    });
+                }
             } else if (!newValue) {
                 // Clear data when no project is selected
                 this.selectedConversation = null;
@@ -235,6 +247,22 @@ export default {
         },
     },
     methods: {
+        async loadGeneralConversations() {
+            try {
+                const response = await axios.get('/conversations/list-of-conversations');
+                this.generalConversations = Object.values(response.data.data).map(conv => ({
+                    id: conv.id,
+                    name: conv.name,
+                    messages_slug: conv.messages_slug,
+                    createdAt: conv.createdAt,
+                    updatedAt: conv.updatedAt,
+                    questions: conv.questions
+                }));
+            } catch (error) {
+                console.error('Failed to load general conversations:', error);
+                this.generalConversations = [];
+            }
+        },
         formatDate(dateString) {
             if (!dateString) return 'Unknown date';
             const date = new Date(dateString);

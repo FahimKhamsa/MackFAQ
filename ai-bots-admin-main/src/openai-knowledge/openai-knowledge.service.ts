@@ -42,14 +42,52 @@ export class OpenaiKnowledgeService {
   /**
    * Create or get existing assistant for a project
    */
-  async createOrGetAssistant(projectId: string, customInstructions?: string) {
+  async createOrGetAssistant(
+    projectId: string | null,
+    customInstructions?: string,
+    userId?: string,
+  ) {
     try {
-      // Check if assistant already exists for this project
+      console.log(
+        `[createOrGetAssistant] Input projectId: ${projectId}, type: ${typeof projectId}`,
+      );
+      console.log(`[createOrGetAssistant] userId: ${userId}`);
+
+      // Check if assistant already exists
+      const whereClause: any = { is_active: true };
+      whereClause.user_id = userId;
+
+      if (projectId === null) {
+        // For general/default bot assistant
+        whereClause.project_id = null;
+        console.log(
+          `[createOrGetAssistant] Setting up for general assistant - whereClause:`,
+          whereClause,
+        );
+      } else {
+        // For project-specific assistant
+        whereClause.project_id = projectId;
+        console.log(
+          `[createOrGetAssistant] Setting up for project assistant - whereClause:`,
+          whereClause,
+        );
+      }
+
       const existingAssistant = await this.projectAssistantModel.findOne({
-        where: { project_id: projectId, is_active: true },
+        where: whereClause,
       });
 
       if (existingAssistant) {
+        // Update user_id and bot_id if provided and not already set
+        const updateData: any = {};
+        if (userId && !existingAssistant.user_id) {
+          updateData.user_id = userId;
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          await existingAssistant.update(updateData);
+        }
+
         return {
           assistantId: existingAssistant.openai_assistant_id,
           dbId: existingAssistant.id,
@@ -57,21 +95,30 @@ export class OpenaiKnowledgeService {
         };
       }
 
-      // Create vector store for this project
+      // Create assistant name and instructions based on type
+      const assistantName = projectId
+        ? `Project-${projectId}-Assistant`
+        : `User-${userId}-Default-Assistant`;
+
+      const defaultInstructions = projectId
+        ? 'You are a helpful assistant for this project. Use the uploaded files to answer questions accurately. When referencing information from files, be specific about which document you are citing.'
+        : "You are a helpful default assistant with access to the user's general knowledge base. Use the uploaded files to answer questions accurately. When referencing information from files, be specific about which document you are citing.";
+
+      // Create vector store for this assistant
       const vectorStore = await this.openai.vectorStores.create({
-        name: `Project-${projectId}-VectorStore`,
+        name: projectId
+          ? `Project-${projectId}-VectorStore`
+          : `User-${userId}-Default-VectorStore`,
         expires_after: {
           anchor: 'last_active_at',
           days: 365, // Keep for 1 year
         },
       });
 
-      // Create new OpenAI assistant with vector store
+      // Create new OpenAI assistant with single vector store
       const assistant = await this.openai.beta.assistants.create({
-        name: `Project-${projectId}-Assistant`,
-        instructions:
-          customInstructions ||
-          'You are a helpful assistant for this project. Use the uploaded files to answer questions accurately. When referencing information from files, be specific about which document you are citing.',
+        name: assistantName,
+        instructions: customInstructions || defaultInstructions,
         tools: [{ type: 'file_search' }],
         tool_resources: {
           file_search: {
@@ -81,9 +128,10 @@ export class OpenaiKnowledgeService {
         model: 'gpt-4-1106-preview',
       });
 
-      // Save to database
-      const dbAssistant = await this.projectAssistantModel.create({
+      // Save to database with user and bot information
+      console.log(`[createOrGetAssistant] About to create DB record with:`, {
         project_id: projectId,
+        user_id: userId || null,
         openai_assistant_id: assistant.id,
         vector_store_id: vectorStore.id,
         name: assistant.name,
@@ -91,6 +139,21 @@ export class OpenaiKnowledgeService {
         model: assistant.model,
         is_active: true,
       });
+
+      const dbAssistant = await this.projectAssistantModel.create({
+        project_id: projectId,
+        user_id: userId || null,
+        openai_assistant_id: assistant.id,
+        vector_store_id: vectorStore.id,
+        name: assistant.name,
+        instructions: assistant.instructions,
+        model: assistant.model,
+        is_active: true,
+      });
+
+      console.log(
+        `[createOrGetAssistant] Successfully created DB record with ID: ${dbAssistant.id}`,
+      );
 
       return {
         assistantId: assistant.id,
@@ -107,22 +170,46 @@ export class OpenaiKnowledgeService {
   }
 
   /**
-   * Upload file for knowledge retrieval
+   * Get default assistant for a user (from default bot assistant)
    */
-  async uploadFileForRetrieval(
-    projectId: string,
+  async getDefaultAssistant(userId: string): Promise<ProjectAssistantModel> {
+    const defaultAssistant = await this.projectAssistantModel.findOne({
+      where: {
+        user_id: userId,
+        project_id: null,
+        is_active: true,
+      },
+    });
+
+    return defaultAssistant;
+  }
+
+  /**
+   * Get shared vector store ID for a user (from default bot assistant)
+   */
+  async getSharedVectorStoreId(userId: string): Promise<string | null> {
+    const defaultAssistant = await this.getDefaultAssistant(userId);
+    return defaultAssistant?.vector_store_id || null;
+  }
+
+  /**
+   * Upload file for general knowledge (shared across all user assistants)
+   */
+  async uploadFileForGeneralKnowledge(
     fileBuffer: Buffer,
     filename: string,
     userId: string,
   ) {
     try {
-      // Get or create assistant
+      // Get or create default assistant
       const { dbId: assistantDbId } = await this.createOrGetAssistant(
-        projectId,
+        null, // project_id = null for default assistant
+        undefined,
+        userId,
       );
 
       // Convert Buffer to File-like object for OpenAI
-      const fileBlob = new File([fileBuffer], filename, {
+      const fileBlob = new File([fileBuffer as BlobPart], filename, {
         type: 'application/octet-stream',
       });
 
@@ -132,7 +219,7 @@ export class OpenaiKnowledgeService {
         purpose: 'assistants',
       });
 
-      // Save file info to database
+      // Save file info to database with shared = true
       const dbFile = await this.projectFileModel.create({
         assistant_id: assistantDbId,
         openai_file_id: file.id,
@@ -141,6 +228,7 @@ export class OpenaiKnowledgeService {
         file_size: fileBuffer.length,
         status: 'uploaded',
         user_id: userId,
+        shared: true, // Mark as shared file
       });
 
       return {
@@ -148,10 +236,84 @@ export class OpenaiKnowledgeService {
         dbFileId: dbFile.id,
       };
     } catch (error) {
-      this.logger.error('Error uploading file:', error);
+      this.logger.error('Error uploading general file:', error);
       throw new HttpException(
-        'Failed to upload file',
+        'Failed to upload general file',
         HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Upload file for project-specific knowledge
+   */
+  async uploadFileForProjectKnowledge(
+    projectId: string,
+    fileBuffer: Buffer,
+    filename: string,
+    userId: string,
+  ) {
+    try {
+      // Get or create project assistant
+      const { dbId: assistantDbId } = await this.createOrGetAssistant(
+        projectId,
+        undefined,
+        userId,
+      );
+
+      // Convert Buffer to File-like object for OpenAI
+      const fileBlob = new File([fileBuffer as BlobPart], filename, {
+        type: 'application/octet-stream',
+      });
+
+      // Upload file to OpenAI
+      const file = await this.openai.files.create({
+        file: fileBlob,
+        purpose: 'assistants',
+      });
+
+      // Save file info to database with shared = false
+      const dbFile = await this.projectFileModel.create({
+        assistant_id: assistantDbId,
+        openai_file_id: file.id,
+        filename: filename,
+        file_type: this.getFileExtension(filename),
+        file_size: fileBuffer.length,
+        status: 'uploaded',
+        user_id: userId,
+        shared: false, // Mark as project-specific file
+      });
+
+      return {
+        fileId: file.id,
+        dbFileId: dbFile.id,
+      };
+    } catch (error) {
+      this.logger.error('Error uploading project file:', error);
+      throw new HttpException(
+        'Failed to upload project file',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Upload file for knowledge retrieval (legacy method - kept for backward compatibility)
+   */
+  async uploadFileForRetrieval(
+    projectId: string | null,
+    fileBuffer: Buffer,
+    filename: string,
+    userId: string,
+  ) {
+    if (projectId === null) {
+      return this.uploadFileForGeneralKnowledge(fileBuffer, filename, userId);
+    } else {
+      return this.uploadFileForProjectKnowledge(
+        projectId,
+        fileBuffer,
+        filename,
+        userId,
       );
     }
   }
@@ -159,10 +321,12 @@ export class OpenaiKnowledgeService {
   /**
    * Create a new conversation thread
    */
-  async createThread(projectId: string, userId?: string, sessionId?: string) {
+  async createThread(projectId: string, userId: string, sessionId: string) {
     try {
       const { dbId: assistantDbId } = await this.createOrGetAssistant(
         projectId,
+        undefined,
+        userId,
       );
 
       // Create OpenAI thread
@@ -201,7 +365,11 @@ export class OpenaiKnowledgeService {
     sessionId?: string,
   ) {
     try {
-      const { assistantId } = await this.createOrGetAssistant(projectId);
+      const { assistantId } = await this.createOrGetAssistant(
+        projectId,
+        undefined,
+        userId,
+      );
 
       let currentThreadId = threadId;
 
@@ -282,9 +450,20 @@ export class OpenaiKnowledgeService {
   /**
    * Get all files for a project
    */
-  async getProjectFiles(projectId: string) {
+  async getProjectFiles(projectId: string | null, userId?: string) {
+    const whereClause: any = { is_active: true };
+
+    if (projectId === null) {
+      // For general files, find by user_id and project_id = null
+      whereClause.project_id = null;
+      whereClause.user_id = userId;
+    } else {
+      // For project files
+      whereClause.project_id = projectId;
+    }
+
     const assistant = await this.projectAssistantModel.findOne({
-      where: { project_id: projectId, is_active: true },
+      where: whereClause,
     });
 
     if (!assistant) {
@@ -297,11 +476,82 @@ export class OpenaiKnowledgeService {
   }
 
   /**
-   * Delete a file from the knowledge base
+   * Delete general file from all user assistants
    */
-  async deleteFile(projectId: string, fileId: string) {
+  async deleteGeneralFile(fileId: string, userId: string) {
     try {
-      // Find the file in database
+      // Get default assistant
+      const defaultAssistant = await this.getDefaultAssistant(userId);
+      if (!defaultAssistant) {
+        throw new Error('Default assistant not found');
+      }
+
+      // Find the shared file
+      const dbFile = await this.projectFileModel.findOne({
+        where: {
+          assistant_id: defaultAssistant.id,
+          openai_file_id: fileId,
+          shared: true,
+        },
+      });
+
+      if (!dbFile) {
+        throw new Error('Shared file not found');
+      }
+
+      // Get all user assistants
+      const userAssistants = await this.projectAssistantModel.findAll({
+        where: {
+          user_id: userId,
+          is_active: true,
+        },
+      });
+
+      // Remove from all vector stores if file was trained
+      if (dbFile.status === 'completed') {
+        for (const assistant of userAssistants) {
+          if (assistant.vector_store_id) {
+            try {
+              await this.openai.vectorStores.files.delete(fileId, {
+                vector_store_id: assistant.vector_store_id,
+              });
+              this.logger.log(
+                `File ${dbFile.filename} removed from vector store ${assistant.vector_store_id}`,
+              );
+            } catch (vectorError) {
+              this.logger.warn(
+                `Failed to remove file from vector store ${assistant.vector_store_id}: ${vectorError.message}`,
+              );
+              // Continue with deletion even if vector store removal fails
+            }
+          }
+        }
+      }
+
+      // Delete from OpenAI files
+      await this.openai.files.delete(fileId);
+
+      // Delete from database
+      await dbFile.destroy();
+
+      this.logger.log(
+        `Shared file ${dbFile.filename} deleted from all assistants`,
+      );
+      return { success: true };
+    } catch (error) {
+      this.logger.error('Error deleting general file:', error);
+      throw new HttpException(
+        'Failed to delete general file',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Delete project-specific file
+   */
+  async deleteProjectFile(projectId: string, fileId: string) {
+    try {
       const assistant = await this.projectAssistantModel.findOne({
         where: { project_id: projectId, is_active: true },
       });
@@ -314,11 +564,12 @@ export class OpenaiKnowledgeService {
         where: {
           assistant_id: assistant.id,
           openai_file_id: fileId,
+          shared: false,
         },
       });
 
       if (!dbFile) {
-        throw new Error('File not found');
+        throw new Error('Project file not found');
       }
 
       // Remove from vector store if it exists and file was trained
@@ -348,11 +599,22 @@ export class OpenaiKnowledgeService {
       this.logger.log(`File ${dbFile.filename} deleted successfully`);
       return { success: true };
     } catch (error) {
-      this.logger.error('Error deleting file:', error);
+      this.logger.error('Error deleting project file:', error);
       throw new HttpException(
-        'Failed to delete file',
+        'Failed to delete project file',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  /**
+   * Delete a file from the knowledge base (legacy method - kept for backward compatibility)
+   */
+  async deleteFile(projectId: string | null, fileId: string, userId?: string) {
+    if (projectId === null) {
+      return this.deleteGeneralFile(fileId, userId);
+    } else {
+      return this.deleteProjectFile(projectId, fileId);
     }
   }
 
@@ -397,17 +659,151 @@ export class OpenaiKnowledgeService {
   }
 
   /**
-   * Train all uploaded files for a project
+   * Train general files across all user assistants
    */
-  async trainUploadedFiles(projectId: string) {
+  async trainGeneralFiles(userId: string) {
     console.log(
-      `[OpenaiKnowledgeService - trainUploadedFiles] Training files for project: ${projectId}`,
+      `[OpenaiKnowledgeService - trainGeneralFiles] Training general files for user: ${userId}`,
     );
     try {
-      // Get assistant for the project
-      let assistant = await this.projectAssistantModel.findOne({
-        where: { project_id: projectId, is_active: true },
+      // Get all assistants for this user (default + all projects)
+      const userAssistants = await this.projectAssistantModel.findAll({
+        where: {
+          user_id: userId,
+          is_active: true,
+        },
       });
+
+      if (userAssistants.length === 0) {
+        throw new Error('No assistants found for this user');
+      }
+
+      // Get default assistant (where project_id is null)
+      const defaultAssistant = userAssistants.find(
+        (assistant) => assistant.project_id === null,
+      );
+
+      if (!defaultAssistant) {
+        throw new Error('Default assistant not found for this user');
+      }
+
+      // Get all shared files with 'uploaded' status from default assistant
+      const sharedFiles = await this.projectFileModel.findAll({
+        where: {
+          assistant_id: defaultAssistant.id,
+          status: 'uploaded',
+          shared: true,
+        },
+      });
+
+      console.log(
+        `[OpenaiKnowledgeService - trainGeneralFiles] Found ${sharedFiles.length} shared files to train across ${userAssistants.length} assistants`,
+      );
+
+      if (sharedFiles.length === 0) {
+        return {
+          success: true,
+          message: 'No shared files to train',
+          trainedCount: 0,
+          failedCount: 0,
+        };
+      }
+
+      let totalTrainedCount = 0;
+      let totalFailedCount = 0;
+
+      // Process each shared file across all assistants
+      for (const file of sharedFiles) {
+        let fileTrainedSuccessfully = true;
+        const assistantResults = [];
+
+        // Update file status to processing
+        await file.update({ status: 'processing' });
+
+        // Train this file across all user assistants sequentially
+        for (const assistant of userAssistants) {
+          try {
+            console.log(
+              `[trainGeneralFiles] Training file ${
+                file.filename
+              } on assistant ${assistant.id} (project: ${
+                assistant.project_id || 'default'
+              })`,
+            );
+
+            await this.processFileForTraining(file, assistant);
+            assistantResults.push({
+              assistantId: assistant.id,
+              success: true,
+            });
+
+            this.logger.log(
+              `Successfully trained file ${file.filename} on assistant ${assistant.id}`,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Failed to train file ${file.filename} on assistant ${assistant.id}:`,
+              error,
+            );
+
+            assistantResults.push({
+              assistantId: assistant.id,
+              success: false,
+              error: error.message,
+            });
+
+            fileTrainedSuccessfully = false;
+          }
+        }
+
+        // Update file status based on overall success
+        if (fileTrainedSuccessfully) {
+          await file.update({ status: 'completed' });
+          totalTrainedCount++;
+          this.logger.log(
+            `File ${file.filename} successfully trained across all assistants`,
+          );
+        } else {
+          await file.update({ status: 'failed' });
+          totalFailedCount++;
+          this.logger.error(
+            `File ${file.filename} failed to train on one or more assistants`,
+          );
+        }
+      }
+
+      return {
+        success: true,
+        message: `General training completed: ${totalTrainedCount} files successful, ${totalFailedCount} files failed`,
+        trainedCount: totalTrainedCount,
+        failedCount: totalFailedCount,
+      };
+    } catch (error) {
+      this.logger.error('Error training general files:', error);
+      throw new HttpException(
+        'Failed to train general files',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Train project-specific files
+   */
+  async trainProjectFiles(projectId: string, userId?: string) {
+    console.log(
+      `[OpenaiKnowledgeService - trainProjectFiles] Training project files for project: ${projectId}`,
+    );
+    try {
+      // Get or create assistant for the project
+      const { dbId: assistantDbId } = await this.createOrGetAssistant(
+        projectId,
+        undefined,
+        userId,
+      );
+
+      // Get the assistant record
+      let assistant = await this.projectAssistantModel.findByPk(assistantDbId);
 
       if (!assistant) {
         throw new Error('Assistant not found for this project');
@@ -454,22 +850,23 @@ export class OpenaiKnowledgeService {
         );
       }
 
-      // Get all files with 'uploaded' status
+      // Get all files with 'uploaded' status for this specific project
       const uploadedFiles = await this.projectFileModel.findAll({
         where: {
           assistant_id: assistant.id,
           status: 'uploaded',
+          shared: false, // Only project-specific files
         },
       });
 
       console.log(
-        `[OpenaiKnowledgeService - trainUploadedFiles] Found ${uploadedFiles.length} files to train`,
+        `[OpenaiKnowledgeService - trainProjectFiles] Found ${uploadedFiles.length} project files to train`,
       );
 
       if (uploadedFiles.length === 0) {
         return {
           success: true,
-          message: 'No files to train',
+          message: 'No project files to train',
           trainedCount: 0,
           failedCount: 0,
         };
@@ -506,14 +903,154 @@ export class OpenaiKnowledgeService {
 
       return {
         success: true,
-        message: `Training completed: ${trainedCount} successful, ${failedCount} failed`,
+        message: `Project training completed: ${trainedCount} successful, ${failedCount} failed`,
         trainedCount,
         failedCount,
       };
     } catch (error) {
-      this.logger.error('Error training files:', error);
+      this.logger.error('Error training project files:', error);
       throw new HttpException(
-        'Failed to train files',
+        'Failed to train project files',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Train all uploaded files for a project (legacy method - kept for backward compatibility)
+   */
+  async trainUploadedFiles(projectId: string | null, userId?: string) {
+    if (projectId === null) {
+      return this.trainGeneralFiles(userId);
+    } else {
+      return this.trainProjectFiles(projectId, userId);
+    }
+  }
+
+  /**
+   * Retry training failed general files across all user assistants
+   */
+  async retryGeneralFiles(userId: string) {
+    console.log(
+      `[OpenaiKnowledgeService - retryGeneralFiles] Retrying general files for user: ${userId}`,
+    );
+    try {
+      // Get all assistants for this user (default + all projects)
+      const userAssistants = await this.projectAssistantModel.findAll({
+        where: {
+          user_id: userId,
+          is_active: true,
+        },
+      });
+
+      if (userAssistants.length === 0) {
+        throw new Error('No assistants found for this user');
+      }
+
+      // Get default assistant (where project_id is null)
+      const defaultAssistant = userAssistants.find(
+        (assistant) => assistant.project_id === null,
+      );
+
+      if (!defaultAssistant) {
+        throw new Error('Default assistant not found for this user');
+      }
+
+      // Get all shared files with 'failed' status from default assistant
+      const failedSharedFiles = await this.projectFileModel.findAll({
+        where: {
+          assistant_id: defaultAssistant.id,
+          status: 'failed',
+          shared: true,
+        },
+      });
+
+      console.log(
+        `[OpenaiKnowledgeService - retryGeneralFiles] Found ${failedSharedFiles.length} failed shared files to retry across ${userAssistants.length} assistants`,
+      );
+
+      if (failedSharedFiles.length === 0) {
+        return {
+          success: true,
+          message: 'No failed shared files to retry',
+          trainedCount: 0,
+          failedCount: 0,
+        };
+      }
+
+      let totalTrainedCount = 0;
+      let totalFailedCount = 0;
+
+      // Process each failed shared file across all assistants
+      for (const file of failedSharedFiles) {
+        let fileTrainedSuccessfully = true;
+        const assistantResults = [];
+
+        // Update file status to processing
+        await file.update({ status: 'processing' });
+
+        // Retry training this file across all user assistants sequentially
+        for (const assistant of userAssistants) {
+          try {
+            console.log(
+              `[retryGeneralFiles] Retrying file ${
+                file.filename
+              } on assistant ${assistant.id} (project: ${
+                assistant.project_id || 'default'
+              })`,
+            );
+
+            await this.processFileForTraining(file, assistant);
+            assistantResults.push({
+              assistantId: assistant.id,
+              success: true,
+            });
+
+            this.logger.log(
+              `Successfully retrained file ${file.filename} on assistant ${assistant.id}`,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Failed to retrain file ${file.filename} on assistant ${assistant.id}:`,
+              error,
+            );
+
+            assistantResults.push({
+              assistantId: assistant.id,
+              success: false,
+              error: error.message,
+            });
+
+            fileTrainedSuccessfully = false;
+          }
+        }
+
+        // Update file status based on overall success
+        if (fileTrainedSuccessfully) {
+          await file.update({ status: 'completed' });
+          totalTrainedCount++;
+          this.logger.log(
+            `File ${file.filename} successfully retrained across all assistants`,
+          );
+        } else {
+          await file.update({ status: 'failed' });
+          totalFailedCount++;
+          this.logger.error(
+            `File ${file.filename} still failed to train on one or more assistants`,
+          );
+        }
+      }
+
+      return {
+        success: true,
+        message: `General retry completed: ${totalTrainedCount} files successful, ${totalFailedCount} files still failed`,
+        trainedCount: totalTrainedCount,
+        failedCount: totalFailedCount,
+      };
+    } catch (error) {
+      this.logger.error('Error retrying general files:', error);
+      throw new HttpException(
+        'Failed to retry general files',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -522,7 +1059,18 @@ export class OpenaiKnowledgeService {
   /**
    * Retry training failed files for a project
    */
-  async retryFailedFiles(projectId: string) {
+  async retryFailedFiles(projectId: string | null, userId?: string) {
+    if (projectId === null) {
+      return this.retryGeneralFiles(userId);
+    } else {
+      return this.retryProjectFiles(projectId);
+    }
+  }
+
+  /**
+   * Retry training failed files for a specific project
+   */
+  async retryProjectFiles(projectId: string) {
     try {
       // Get assistant for the project
       let assistant = await this.projectAssistantModel.findOne({

@@ -16,7 +16,6 @@ import {
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
-import { UserModel } from 'src/users/entities/user.model';
 import { ApiService, MessageTypes } from './api.service';
 import { IClearMemoryDTO } from './dto/clear-memory.dto';
 import {
@@ -25,7 +24,6 @@ import {
   ICreateConversationDTO,
   IGetCompleteDTO,
   IProjectIdentification,
-  IRecompleteDTO,
 } from './dto/get-complete.dto';
 import { AuthedWithBot } from 'src/authed-with-bot.decorator';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
@@ -53,15 +51,17 @@ export class ApiController {
     const useOpenAIKnowledge = process.env.USE_OPENAI_KNOWLEDGE === 'true';
 
     // Try OpenAI Knowledge Retrieval first if enabled and project_id is provided
-    if (useOpenAIKnowledge && query.project_id) {
+    if (useOpenAIKnowledge) {
       try {
+        const projectId = query.project_id || null;
+
         console.log(
           '[OpenAI Knowledge] Attempting to use knowledge retrieval for project:',
           query.project_id,
         );
 
         const knowledgeResult = await this.openaiKnowledgeService.askQuestion(
-          query.project_id,
+          projectId,
           query.prompt,
           query.conversationId, // Use as threadId
           query.userId, // Pass the actual userId from the query
@@ -79,9 +79,7 @@ export class ApiController {
 
           // Get assistant info for the project
           const assistant =
-            await this.openaiKnowledgeService.getProjectAssistant(
-              query.project_id,
-            );
+            await this.openaiKnowledgeService.getProjectAssistant(projectId);
           const assistantId = assistant?.id || null;
 
           // Prepare messages to store
@@ -106,12 +104,12 @@ export class ApiController {
               conversationId,
               messagesToStore,
               {
-                project_id: query.project_id,
+                project_id: projectId,
                 user_id: query.userId,
                 assistant_id: assistantId,
                 name:
                   query.conversationName ||
-                  `Chat ${new Date().toLocaleDateString()}`,
+                  `General Chat ${new Date().toLocaleDateString()}`,
                 messages_slug:
                   await this.conversationsService.generateConversationMessagesSlug(
                     messagesToStore,
@@ -121,6 +119,8 @@ export class ApiController {
             console.log(
               '[OpenAI Knowledge] Created new conversation:',
               conversationId,
+              'for project:',
+              projectId || 'General Chat',
             );
           } else {
             // Append to existing conversation
@@ -128,13 +128,15 @@ export class ApiController {
               conversationId,
               messagesToStore,
               {
-                project_id: query.project_id,
+                project_id: projectId,
                 assistant_id: assistantId,
               },
             );
             console.log(
               '[OpenAI Knowledge] Appended to existing conversation:',
               conversationId,
+              'for project:',
+              projectId || 'General Chat',
             );
           }
         } catch (storageError) {
@@ -218,9 +220,11 @@ export class ApiController {
 
   @Get('list-of-conversations')
   @UseGuards(JwtAuthGuard)
-  public async listConversations(@Query() query: IProjectIdentification) {
+  public async listConversations(@Query() query: { project_id?: string }) {
     return {
-      data: await this.apiService.getListOfConversationIds(query),
+      data: await this.conversationsService.getConversationsList(
+        query.project_id,
+      ),
     };
   }
 
@@ -388,7 +392,7 @@ export class ApiController {
   @UseGuards(JwtAuthGuard)
   public async myConnections(
     @Req() req: Request,
-    @Query('project_id') project_id?: string,
+    // @Query('project_id') project_id?: string,
   ) {
     const user = req.user as any;
     const bot = await this.botsService.getDefaultBotForUser({
@@ -486,16 +490,14 @@ export class ApiController {
   @UseGuards(JwtAuthGuard)
   public async trainFiles(
     @Req() req: Request,
-    @Query('project_id') project_id: string,
+    @Query('project_id') project_id?: string,
   ) {
-    if (!project_id) {
-      throw new HttpException('Project ID is required', HttpStatus.BAD_REQUEST);
-    }
-
     const user = req.user as any;
     const bot = await this.botsService.getDefaultBotForUser({
       user_id: user.id,
     });
+
+    console.log('[ApiController - trainFiles] Project ID:', project_id);
 
     // Feature flag for OpenAI Knowledge Retrieval
     const useOpenAIKnowledge = process.env.USE_OPENAI_KNOWLEDGE === 'true';
@@ -556,7 +558,7 @@ export class ApiController {
   @UseGuards(JwtAuthGuard)
   public async getPendingFiles(
     @Req() req: Request,
-    @Query('project_id') project_id: string,
+    @Query('project_id') project_id?: string,
   ) {
     const user = req.user as any;
     const bot = await this.botsService.getDefaultBotForUser({

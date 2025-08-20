@@ -23,32 +23,233 @@ export class OpenaiKnowledgeController {
   constructor(
     private readonly openaiKnowledgeService: OpenaiKnowledgeService,
   ) {}
-
   /**
-   * Initialize assistant for a project
+   * Upload file for general knowledge (default assistant)
    */
-  @Post('init/:projectId')
-  async initializeProject(
-    @Param('projectId') projectId: string,
-    @Body('instructions') instructions?: string,
+  @Post('upload/general')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFileGeneral(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: Request,
   ) {
-    try {
-      const result = await this.openaiKnowledgeService.createOrGetAssistant(
-        projectId,
-        instructions,
+    if (!file) {
+      throw new HttpException('No file provided', HttpStatus.BAD_REQUEST);
+    }
+
+    const user = req.user as any;
+    if (!user || !user.id) {
+      throw new HttpException(
+        'User not authenticated or missing ID',
+        HttpStatus.UNAUTHORIZED,
       );
+    }
+
+    try {
+      const result = await this.openaiKnowledgeService.uploadFileForRetrieval(
+        null, // project_id = null for general uploads
+        file.buffer,
+        file.originalname,
+        user.id,
+      );
+
       return {
         success: true,
-        assistantId: result.assistantId,
-        dbId: result.dbId,
+        fileId: result.fileId,
+        dbFileId: result.dbFileId,
+        filename: file.originalname,
       };
     } catch (error) {
       throw new HttpException(
-        error.message || 'Failed to initialize project',
+        error.message || 'Failed to upload file',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
+
+  /**
+   * Train general files (default assistant)
+   */
+  @Post('train/general')
+  @UseGuards(JwtAuthGuard)
+  async trainGeneralFiles(@Req() req: Request) {
+    try {
+      const user = req.user as any;
+      if (!user || !user.id) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      const result = await this.openaiKnowledgeService.trainUploadedFiles(
+        null, // project_id = null for general training
+        user.id,
+      );
+
+      return {
+        success: result.success,
+        message: result.message,
+        trainedCount: result.trainedCount,
+        failedCount: result.failedCount,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to train files',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get general files (default bot)
+   */
+  @Get('files/general')
+  @UseGuards(JwtAuthGuard)
+  async getGeneralFiles(@Req() req: Request) {
+    try {
+      const user = req.user as any;
+      if (!user || !user.id) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      const files = await this.openaiKnowledgeService.getProjectFiles(
+        null, // project_id = null for general files
+        user.id,
+      );
+
+      return {
+        success: true,
+        files: files,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to get files',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Delete general file
+   */
+  @Delete('file/general/:fileId')
+  @UseGuards(JwtAuthGuard)
+  async deleteGeneralFile(
+    @Param('fileId') fileId: string,
+    @Req() req: Request,
+  ) {
+    try {
+      const user = req.user as any;
+      if (!user || !user.id) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      const result = await this.openaiKnowledgeService.deleteFile(
+        null, // project_id = null for general files
+        fileId,
+        user.id,
+      );
+
+      return {
+        success: result.success,
+        message: 'File deleted successfully',
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to delete file',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Retry training failed general files (default assistant)
+   */
+  @Post('retry-train/general')
+  @UseGuards(JwtAuthGuard)
+  async retryTrainGeneralFiles(@Req() req: Request) {
+    try {
+      const user = req.user as any;
+      if (!user || !user.id) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      const result = await this.openaiKnowledgeService.retryFailedFiles(
+        null, // project_id = null for general retry
+        user.id,
+      );
+
+      return {
+        success: result.success,
+        message: result.message,
+        trainedCount: result.trainedCount,
+        failedCount: result.failedCount,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to retry training general files',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // /**
+  //  * Initialize assistant for a project
+  //  */
+  // @Post('init/:projectId')
+  // @UseGuards(JwtAuthGuard)
+  // async initializeProject(
+  //   @Param('projectId') projectId: string,
+  //   @Req() req: Request,
+  //   @Body('instructions') instructions?: string,
+  // ) {
+  //   try {
+  //     const user = req.user as any;
+  //     let userId: string | undefined;
+  //     let botId: string | undefined;
+
+  //     if (user && user.id) {
+  //       userId = user.id;
+  //       // Get the user's default bot
+  //       const defaultAssistant =
+  //         await this.openaiKnowledgeService.getDefaultAssistant(user.id);
+  //       if (defaultAssistant) {
+  //         botId = defaultAssistant.id.toString();
+  //       }
+  //     }
+
+  //     console.log(
+  //       '[openai-knowledge-controller - trainFiles] Project ID:',
+  //       projectId,
+  //     );
+
+  //     const result = await this.openaiKnowledgeService.createOrGetAssistant(
+  //       projectId,
+  //       instructions,
+  //       userId,
+  //     );
+  //     return {
+  //       success: true,
+  //       assistantId: result.assistantId,
+  //       dbId: result.dbId,
+  //     };
+  //   } catch (error) {
+  //     throw new HttpException(
+  //       error.message || 'Failed to initialize project',
+  //       HttpStatus.INTERNAL_SERVER_ERROR,
+  //     );
+  //   }
+  // }
 
   /**
    * Upload file for knowledge retrieval
@@ -272,14 +473,23 @@ export class OpenaiKnowledgeController {
    * Train all uploaded files for a project
    */
   @Post('train/:projectId')
-  async trainFiles(@Param('projectId') projectId: string) {
+  @UseGuards(JwtAuthGuard)
+  async trainFiles(@Param('projectId') projectId: string, @Req() req: Request) {
     console.log(
       '[OpenaiKnowledgeController - trainFiles] Training files for project:',
       projectId,
     );
     try {
+      const user = req.user as any;
+      let userId: string | undefined;
+
+      if (user && user.id) {
+        userId = user.id;
+      }
+
       const result = await this.openaiKnowledgeService.trainUploadedFiles(
         projectId,
+        userId,
       );
 
       console.log(

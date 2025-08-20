@@ -8,6 +8,8 @@ import {
   BelongsTo,
 } from 'sequelize-typescript';
 import { ProjectModel } from 'src/projects/entities/projects.model';
+import { UserModel } from 'src/users/entities/user.model';
+import { BotModel } from 'src/bots/entities/bot.model';
 
 @Table({
   tableName: 'project_assistants',
@@ -28,6 +30,20 @@ export class ProjectAssistantModel extends Model<ProjectAssistantModel> {
     allowNull: true,
   })
   project_id: string;
+
+  @ForeignKey(() => UserModel)
+  @Column({
+    type: DataType.UUID,
+    allowNull: true,
+  })
+  user_id: string;
+
+  @ForeignKey(() => BotModel)
+  @Column({
+    type: DataType.UUID,
+    allowNull: true,
+  })
+  bot_id: string;
 
   @Column({
     type: DataType.STRING(255),
@@ -71,4 +87,18 @@ export class ProjectAssistantModel extends Model<ProjectAssistantModel> {
     onUpdate: 'CASCADE',
   })
   project: ProjectModel;
+
+  @BelongsTo(() => UserModel, {
+    foreignKey: 'user_id',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  })
+  user: UserModel;
+
+  @BelongsTo(() => BotModel, {
+    foreignKey: 'bot_id',
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  })
+  bot: BotModel;
 }

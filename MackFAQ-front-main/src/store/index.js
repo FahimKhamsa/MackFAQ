@@ -35,12 +35,16 @@ export default createStore({
     defaultBot: null,
     projectsTrainingData: {},
     projectsConversationsList: {},
+    generalConversationsList: [], // For general chat conversations
+    generalTrainingData: '', // For general training data
     savedKnowledgeByLink: {},
     conversationsData: {},
     savedKnowledge: {},
+    generalSavedKnowledge: '', // For general saved knowledge
     isAuthSet: null,
     myDocsList: [],
     myDocsListByProject: {},
+    myGeneralDocs: [], // For general uploaded files
   },
   getters: {
     getAvailableProjects: (state) => state.availableProjects,
@@ -48,12 +52,16 @@ export default createStore({
     getcurrent_bot_prompt_prefix: (state) => state.current_bot_data && state.current_bot_data.prompt_prefix || null,
     getProjectsTrainingData: state => project_id => state.projectsTrainingData[project_id],
     getProjectsConversationsList: state => project_id => state.projectsConversationsList[project_id],
+    getGeneralConversationsList: state => state.generalConversationsList,
+    getGeneralTrainingData: state => state.generalTrainingData,
+    getGeneralSavedKnowledge: state => state.generalSavedKnowledge,
     getConversationData: state => conversationId => state.conversationsData[conversationId],
     getSavedKnowledge: state => project_id => state.savedKnowledge[project_id],
     getSavedKnowledgeById: state => project_id => state.savedKnowledge[project_id],
     getSavedKnowledgeByLink: state => project_link => state.savedKnowledgeByLink[project_link],
     getIsAuthSet: state => !!getKT(), // Check if JWT token exists
     getMyDocsList: state => state.myDocsList,
+    getMyGeneralDocs: state => state.myGeneralDocs,
     getDocsConnectedToProject: state => project_id => state.myDocsListByProject[project_id] ?? [],
     getProfile: state => state.profile,
     getDefaultBot: state => state.defaultBot,
@@ -68,10 +76,18 @@ export default createStore({
     SET_PROJECT_TRAINING_DATA(state, { project_id, data }) {
       state.projectsTrainingData[project_id] = data;
     },
+    SET_GENERAL_TRAINING_DATA(state, data) {
+      state.generalTrainingData = data;
+    },
     SET_PROJECT_CONVERSATIONS_LIST(state, { project_id, data }) {
       const listOfConversations = Object.values(data);
       listOfConversations.sort((a, b) => +b.createdAt - +a.createdAt);
       state.projectsConversationsList[project_id] = listOfConversations;
+    },
+    SET_GENERAL_CONVERSATIONS_LIST(state, data) {
+      const listOfConversations = Object.values(data);
+      listOfConversations.sort((a, b) => +b.createdAt - +a.createdAt);
+      state.generalConversationsList = listOfConversations;
     },
     SET_PROJECT_CONVERSATION_DATA(state, { conversationId, data }) {
       state.conversationsData[conversationId] = data;
@@ -82,12 +98,27 @@ export default createStore({
         state.savedKnowledgeByLink[project_link] = data;
       }
     },
+    SET_GENERAL_SAVED_KNOWLEDGE(state, data) {
+      state.generalSavedKnowledge = data;
+    },
     SET_MY_DOCS(state, list) {
       state.myDocsList = list;
+      state.myGeneralDocs = []; // Reset general docs
       for (const file of list) {
-        for (const conn of file.connections) {
-          state.myDocsListByProject[conn.project_id] ??= [];
-          state.myDocsListByProject[conn.project_id].push(conn);
+        // Check if file has no project connections (general files)
+        if (!file.connections || file.connections.length === 0) {
+          state.myGeneralDocs.push(file);
+        } else {
+          // Handle project-specific files
+          for (const conn of file.connections) {
+            if (conn.project_id) {
+              state.myDocsListByProject[conn.project_id] ??= [];
+              state.myDocsListByProject[conn.project_id].push(conn);
+            } else {
+              // Files with null project_id are general files
+              state.myGeneralDocs.push(conn);
+            }
+          }
         }
       }
     },
@@ -144,6 +175,18 @@ export default createStore({
           context.commit('SET_PROJECT_CONVERSATIONS_LIST', { project_id, data: {} });
         });
     },
+    updateGeneralConversationsList(context) {
+      axiosConfigured.get(API_URL + '/api/list-of-conversations')
+        .then(result => {
+          const data = result?.data?.data || {};
+          context.commit('SET_GENERAL_CONVERSATIONS_LIST', data);
+        })
+        .catch(error => {
+          console.error('Failed to load general conversations list:', error);
+          // Fallback: set empty conversations list
+          context.commit('SET_GENERAL_CONVERSATIONS_LIST', {});
+        });
+    },
     updateProjectSavedKnowledge(context, { project_id, project_link }) {
       axiosConfigured.get(API_URL + '/api/saved-knowledge', { params: { project_link, project_id } })
         .then(result => {
@@ -155,6 +198,27 @@ export default createStore({
               data: result.data.data || ''
             }
           );
+        });
+    },
+    updateGeneralTrainingData(context) {
+      axiosConfigured.get(API_URL + '/projects/management/knowledge-base')
+        .then(async result => {
+          context.commit('SET_GENERAL_TRAINING_DATA', result?.data?.data || '');
+          await context.dispatch('myLoadedFiles');
+        })
+        .catch(error => {
+          console.error('Failed to load general training data:', error);
+          context.commit('SET_GENERAL_TRAINING_DATA', '');
+        });
+    },
+    updateGeneralSavedKnowledge(context) {
+      axiosConfigured.get(API_URL + '/api/saved-knowledge')
+        .then(result => {
+          context.commit('SET_GENERAL_SAVED_KNOWLEDGE', result.data.data || '');
+        })
+        .catch(error => {
+          console.error('Failed to load general saved knowledge:', error);
+          context.commit('SET_GENERAL_SAVED_KNOWLEDGE', '');
         });
     },
     deleteProjectSavedKnowledge(context, { project_id, id }) {
@@ -364,7 +428,12 @@ export default createStore({
 
     async trainFiles(context, { projectId }) {
       try {
-        const params = { bot_id: API_BOT_ID, project_id: projectId };
+        let params;
+        if (projectId) {
+          params = { bot_id: API_BOT_ID, project_id: projectId };
+        } else {
+          params = { bot_id: API_BOT_ID };
+        }
 
         console.log('Training files with params:', params);
 
@@ -377,9 +446,11 @@ export default createStore({
         // Refresh the files list after successful training
         await context.dispatch('myLoadedFiles');
 
-        // Refresh project-specific data
+        // Refresh project-specific data or general data
         if (projectId) {
           await context.dispatch('updateProjectSavedKnowledge', { project_id: projectId });
+        } else {
+          await context.dispatch('updateGeneralSavedKnowledge');
         }
 
         return response.data;
@@ -391,7 +462,12 @@ export default createStore({
 
     async getPendingFiles(context, { projectId }) {
       try {
-        const params = { bot_id: API_BOT_ID, project_id: projectId };
+        let params;
+        if (projectId) {
+          params = { bot_id: API_BOT_ID, project_id: projectId };
+        } else {
+          params = { bot_id: API_BOT_ID };
+        }
 
         const response = await axiosConfigured.get(API_URL + "/api/pending-files", {
           params: params,
@@ -554,6 +630,129 @@ export default createStore({
       } catch (error) {
         console.error('Failed to delete OpenAI file:', error);
         throw error;
+      }
+    },
+
+    // General Knowledge Actions (for default bot)
+    async uploadToGeneralKnowledge(context, { file }) {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        console.log('Uploading file to general knowledge:', file.name);
+
+        const response = await axiosConfigured.post(
+          API_URL + `/openai-knowledge/upload/general`,
+          formData
+        );
+
+        console.log('General upload response:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Failed to upload to general knowledge:', error);
+
+        // Better error handling
+        if (error.response?.status === 401) {
+          // Handle authentication error
+          throw new Error('Authentication required. Please log in again.');
+        } else if (error.response?.data?.message) {
+          throw new Error(error.response.data.message);
+        } else if (error.message) {
+          throw new Error(error.message);
+        } else {
+          throw new Error('Failed to upload file to general knowledge');
+        }
+      }
+    },
+
+    async trainGeneralFiles(context) {
+      try {
+        console.log('Training general files');
+
+        const response = await axiosConfigured.post(
+          API_URL + `/openai-knowledge/train/general`
+        );
+
+        console.log('General training response:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Failed to train general files:', error);
+
+        // Better error handling
+        if (error.response?.status === 401) {
+          throw new Error('Authentication required. Please log in again.');
+        } else if (error.response?.data?.message) {
+          throw new Error(error.response.data.message);
+        } else if (error.message) {
+          throw new Error(error.message);
+        } else {
+          throw new Error('Failed to train general files');
+        }
+      }
+    },
+
+    async loadGeneralFiles(context) {
+      try {
+        const response = await axiosConfigured.get(
+          API_URL + `/openai-knowledge/files/general`
+        );
+        return response.data.files || [];
+      } catch (error) {
+        console.error('Failed to load general files:', error);
+
+        // Better error handling for load operation - don't throw, just return empty array
+        if (error.response?.status === 401) {
+          console.warn('Authentication required to load general files');
+        }
+        return [];
+      }
+    },
+
+    async deleteGeneralFile(context, { fileId }) {
+      try {
+        const response = await axiosConfigured.delete(
+          API_URL + `/openai-knowledge/file/general/${fileId}`
+        );
+        return response.data;
+      } catch (error) {
+        console.error('Failed to delete general file:', error);
+
+        // Better error handling
+        if (error.response?.status === 401) {
+          throw new Error('Authentication required. Please log in again.');
+        } else if (error.response?.data?.message) {
+          throw new Error(error.response.data.message);
+        } else if (error.message) {
+          throw new Error(error.message);
+        } else {
+          throw new Error('Failed to delete general file');
+        }
+      }
+    },
+
+    async retryFailedGeneralFiles(context) {
+      try {
+        console.log('Retrying failed general files');
+
+        const response = await axiosConfigured.post(
+          API_URL + `/openai-knowledge/retry-train/general`
+        );
+
+        console.log('General retry response:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Failed to retry general files:', error);
+
+        // Better error handling
+        if (error.response?.status === 401) {
+          throw new Error('Authentication required. Please log in again.');
+        } else if (error.response?.data?.message) {
+          throw new Error(error.response.data.message);
+        } else if (error.message) {
+          throw new Error(error.message);
+        } else {
+          throw new Error('Failed to retry general files');
+        }
       }
     }
   },

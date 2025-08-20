@@ -65,6 +65,12 @@ export class ProjectFileModel extends Model<ProjectFileModel> {
   })
   status: string;
 
+  @Column({
+    type: DataType.BOOLEAN,
+    defaultValue: false,
+  })
+  shared: boolean;
+
   @BelongsTo(() => ProjectAssistantModel)
   assistant: ProjectAssistantModel;
 }
