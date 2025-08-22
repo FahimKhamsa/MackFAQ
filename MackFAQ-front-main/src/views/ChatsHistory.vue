@@ -11,7 +11,7 @@
             <!-- Project Selection Card -->
             <div class="card" v-if="PROJECT_SHOW">
                 <div class="card-header">
-                    <h3><i class="fas fa-folder-open"></i> Project Selection</h3>
+                    <h3><i class="fa-solid fa-folder-open"></i> Project Selection</h3>
                 </div>
                 <div class="card-body">
                     <div class="form-group">
@@ -24,7 +24,7 @@
             <!-- Chat History Card -->
             <div class="card" v-if="project_id">
                 <div class="card-header">
-                    <h3><i class="fas fa-comments"></i> Conversation History</h3>
+                    <h3><i class="fa-solid fa-comments"></i> Conversation History</h3>
                     <span class="chat-count" v-if="allChatsList">{{ allChatsList.length }} conversations</span>
                 </div>
                 <div>
@@ -32,7 +32,7 @@
                     <div v-if="isLoadingConversations" class="loading-state">
                         <div class="loading-content">
                             <div class="loading-spinner">
-                                <i class="fas fa-spinner fa-spin"></i>
+                                <i class="fa-solid fa-spinner fa-spin"></i>
                             </div>
                             <h3>Loading Conversations...</h3>
                             <p>Please wait while we fetch your conversation history.</p>
@@ -47,7 +47,7 @@
                     <!-- Empty State -->
                     <div v-else-if="project_id && !isLoadingConversations" class="empty-state">
                         <div class="empty-content">
-                            <i class="fas fa-comments empty-icon"></i>
+                            <i class="fa-solid fa-comments empty-icon"></i>
                             <h3>No Conversations Yet</h3>
                             <p>Start chatting to see your conversation history here.</p>
                         </div>
@@ -58,7 +58,7 @@
             <!-- Empty Project State -->
             <div v-else class="empty-state">
                 <div class="empty-content">
-                    <i class="fas fa-folder-open empty-icon"></i>
+                    <i class="fa-solid fa-folder-open empty-icon"></i>
                     <h3>Select a Project</h3>
                     <p>Choose a project above to view its conversation history.</p>
                 </div>

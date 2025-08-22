@@ -11,7 +11,7 @@
 				</div>
 				<div class="header-actions">
 					<button @click="showCreateModal = true" class="btn-modern btn-primary">
-						<i class="fas fa-plus"></i>
+						<i class="fa-solid fa-plus"></i>
 						Create Project
 					</button>
 				</div>
@@ -214,16 +214,16 @@ export default {
 
 		getFileIcon(fileType) {
 			const iconMap = {
-				pdf: "fas fa-file-pdf",
-				xls: "fas fa-file-excel",
-				xlsx: "fas fa-file-excel",
-				txt: "fas fa-file-alt",
-				jpg: "fas fa-file-image",
-				jpeg: "fas fa-file-image",
-				png: "fas fa-file-image",
-				gif: "fas fa-file-image",
+				pdf: "fa-solid fa-file-pdf",
+				xls: "fa-solid fa-file-excel",
+				xlsx: "fa-solid fa-file-excel",
+				txt: "fa-solid fa-file-alt",
+				jpg: "fa-solid fa-file-image",
+				jpeg: "fa-solid fa-file-image",
+				png: "fa-solid fa-file-image",
+				gif: "fa-solid fa-file-image",
 			};
-			return iconMap[fileType?.toLowerCase()] || "fas fa-file";
+			return iconMap[fileType?.toLowerCase()] || "fa-solid fa-file";
 		},
 
 		getFileIconClass(fileType) {

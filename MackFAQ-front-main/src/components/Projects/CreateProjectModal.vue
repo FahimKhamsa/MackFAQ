@@ -4,7 +4,7 @@
 			<div class="modal-header">
 				<h3>Create New Project</h3>
 				<button @click="closeModal" class="modal-close">
-					<i class="fas fa-times"></i>
+					<i class="fa-solid fa-times"></i>
 				</button>
 			</div>
 
@@ -22,8 +22,8 @@
 				</button>
 				<button @click="createProject" :disabled="isCreating || !projectName.trim()"
 					:class="['btn-modern', 'btn-primary', { 'loading': isCreating }]">
-					<i v-if="!isCreating" class="fas fa-plus"></i>
-					<i v-else class="fas fa-spinner fa-spin"></i>
+					<i v-if="!isCreating" class="fa-solid fa-plus"></i>
+					<i v-else class="fa-solid fa-spinner fa-spin"></i>
 					{{ isCreating ? 'Creating...' : 'Create Project' }}
 				</button>
 			</div>

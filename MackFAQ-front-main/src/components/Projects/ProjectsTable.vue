@@ -22,7 +22,7 @@
 						<td class="col-name">
 							<div class="project-name-cell">
 								<div class="project-icon">
-									<i class="fas fa-folder"></i>
+									<i class="fa-solid fa-folder"></i>
 								</div>
 								<div v-if="editingProject === project.id" class="project-name-edit">
 									<input 
@@ -58,21 +58,21 @@
 										@click.stop="handleAction('rename', project)"
 										class="dropdown-item"
 									>
-										<i class="fas fa-edit"></i>
+										<i class="fa-solid fa-edit"></i>
 										Rename
 									</button>
 									<button 
 										@click.stop="handleAction('upload', project)"
 										class="dropdown-item"
 									>
-										<i class="fas fa-upload"></i>
+										<i class="fa-solid fa-upload"></i>
 										Upload
 									</button>
 									<button 
 										@click.stop="handleAction('delete', project)"
 										class="dropdown-item danger"
 									>
-										<i class="fas fa-trash"></i>
+										<i class="fa-solid fa-trash"></i>
 										Delete
 									</button>
 								</div>
@@ -87,7 +87,7 @@
 		<div v-if="projects.length === 0" class="empty-state">
 			<div class="empty-content">
 				<div class="empty-icon">
-					<i class="fas fa-folder-open"></i>
+					<i class="fa-solid fa-folder-open"></i>
 				</div>
 				<h3>No Projects Found</h3>
 				<p>Create your first project to get started with document management.</p>

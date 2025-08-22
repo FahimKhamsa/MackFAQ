@@ -38,7 +38,7 @@
         <!-- Project Selection Card -->
         <div class="card" v-if="PROJECT_SHOW">
           <div class="card-header">
-            <h3><i class="fas fa-folder-open"></i> Project Selection</h3>
+            <h3><i class="fa-solid fa-folder-open"></i> Project Selection</h3>
           </div>
           <div class="card-body">
             <div class="form-group">
@@ -56,7 +56,7 @@
               <div class="url-display">
                 <span class="url-text">{{ project_link }}</span>
                 <button class="btn-modern btn-secondary btn-sm" @click.prevent="copyTextToClipboard(project_link)">
-                  <i class="fas fa-copy"></i>
+                  <i class="fa-solid fa-copy"></i>
                   Copy
                 </button>
               </div>
@@ -67,7 +67,7 @@
         <!-- AI Prompts Configuration Card -->
         <div class="card">
           <div class="card-header">
-            <h3><i class="fas fa-robot"></i> AI Prompts Configuration</h3>
+            <h3><i class="fa-solid fa-robot"></i> AI Prompts Configuration</h3>
           </div>
           <div class="card-body">
             <form @submit.prevent="updatePrePrompt" class="prompts-form">
@@ -89,7 +89,7 @@
               </div>
 
               <button type="submit" class="btn-modern btn-primary" ref="submit">
-                <i class="fas fa-save"></i>
+                <i class="fa-solid fa-save"></i>
                 {{ $t('Save prompts') }}
               </button>
             </form>
@@ -103,18 +103,18 @@
       <div class="card">
         <div class="card-header">
           <div class="header-left">
-            <h3><i class="fas fa-cloud-upload-alt"></i> Document Upload</h3>
+            <h3><i class="fa-solid fa-cloud-upload-alt"></i> Document Upload</h3>
           </div>
           <div class="header-actions">
             <button @click="trainAI" class="btn-modern btn-success" :class="{ 'preloader': isTraining }"
               :disabled="isTraining || uploadedFilesCount === 0">
-              <i class="fas fa-brain"></i>
+              <i class="fa-solid fa-brain"></i>
               Train AI
               <span v-if="uploadedFilesCount > 0" class="badge">{{ uploadedFilesCount }}</span>
             </button>
             <button @click="retryTraining" class="btn-modern btn-warning" :class="{ 'preloader': isRetrying }"
               :disabled="isRetrying || failedFilesCount === 0">
-              <i class="fas fa-redo"></i>
+              <i class="fa-solid fa-redo"></i>
               Retry Train
               <span v-if="failedFilesCount > 0" class="badge">{{ failedFilesCount }}</span>
             </button>
@@ -124,7 +124,7 @@
           <div class="upload-section">
             <div class="sample-link">
               <a href="/Sample.csv" class="btn-modern btn-secondary btn-sm">
-                <i class="fas fa-download"></i>
+                <i class="fa-solid fa-download"></i>
                 Download Sample CSV
               </a>
             </div>
@@ -135,7 +135,7 @@
               @click="triggerFileInput">
               <div class="upload-content">
                 <div class="upload-icon">
-                  <i class="fas fa-cloud-upload-alt"></i>
+                  <i class="fa-solid fa-cloud-upload-alt"></i>
                 </div>
                 <h4>Drop files here or click to browse</h4>
                 <p>Supports: PDF, XLS, XLSX, TXT, JPG, PNG, GIF, CSV</p>
@@ -153,9 +153,9 @@
       <!-- Training Data Editor Card -->
       <div class="card" v-if="TEXT_FAQ_SHOW">
         <div class="card-header">
-          <h3><i class="fas fa-edit"></i> Training Data Editor</h3>
+          <h3><i class="fa-solid fa-edit"></i> Training Data Editor</h3>
           <button @click.prevent="clearTraining()" class="btn-modern btn-danger btn-sm">
-            <i class="fas fa-trash"></i>
+            <i class="fa-solid fa-trash"></i>
             Clear All
           </button>
         </div>
@@ -163,7 +163,7 @@
           <div class="editor-section">
             <QAEditor v-model="form.text" :project_id="this.project_id"></QAEditor>
             <button type="submit" @click="sendForm" class="btn-modern btn-primary" ref="submit">
-              <i class="fas fa-brain"></i>
+              <i class="fa-solid fa-brain"></i>
               {{ $t('train') }}
             </button>
           </div>
@@ -173,7 +173,7 @@
       <!-- Train AI Card -->
       <!-- <div class="card full-width" v-if="project_id">
         <div class="card-header">
-          <h3><i class="fas fa-brain"></i> AI Training</h3>
+          <h3><i class="fa-solid fa-brain"></i> AI Training</h3>
         </div>
         <div class="card-body">
           <div class="training-section">
@@ -181,7 +181,7 @@
               Upload your files first, then click "Train AI" to process all pending files and train your AI assistant.
             </p>
             <button @click="trainAI" class="btn-modern btn-primary btn-large" ref="trainButton">
-              <i class="fas fa-brain"></i>
+              <i class="fa-solid fa-brain"></i>
               Train AI
             </button>
           </div>
@@ -191,7 +191,7 @@
       <!-- Available Files Card -->
       <div class="card full-width" v-if="!reload && availableFiles && availableFiles.length">
         <div class="card-header">
-          <h3><i class="fas fa-files"></i> Available Documents</h3>
+          <h3><i class="fa-solid fa-files"></i> Available Documents</h3>
           <span class="file-count">{{ availableFiles.length }} files</span>
         </div>
         <div class="card-body">
@@ -208,7 +208,7 @@
               <tbody>
                 <tr v-for="(item, index) in availableFiles" :key="item.id">
                   <td class="file-name-cell">
-                    <i class="fas fa-file-alt file-icon"></i>
+                    <i class="fa-solid fa-file-alt file-icon"></i>
                     {{ item.file_name }}
                   </td>
                   <td class="date-cell">{{ item.createdAt.split("T")[0] }}</td>
@@ -227,7 +227,7 @@
                   </td>
                   <td class="actions-cell">
                     <button @click="() => deleteUploadedKnowledge(item.id)" class="btn-modern btn-danger btn-sm">
-                      <i class="fas fa-trash"></i>
+                      <i class="fa-solid fa-trash"></i>
                     </button>
                   </td>
                 </tr>
@@ -242,7 +242,7 @@
     <div class="card full-width" v-if="projectFiles.length">
       <div class="card-header">
         <div class="header-left">
-          <h3><i class="fas fa-files"></i> {{ project_id && project ? 'Project Files' : 'General Files' }}</h3>
+          <h3><i class="fa-solid fa-files"></i> {{ project_id && project ? 'Project Files' : 'General Files' }}</h3>
           <span class="file-count-badge">{{ projectFiles.length }} files</span>
         </div>
       </div>
@@ -251,7 +251,7 @@
         <div class="files-grid">
           <div v-for="file in projectFiles" :key="file.id" class="file-card">
             <button @click="() => deleteFile(file)" class="file-delete-btn" title="Delete file">
-              <i class="fas fa-times"></i>
+              <i class="fa-solid fa-times"></i>
             </button>
             <div class="file-icon" :class="getFileIconClass(file.file_type)">
               <i :class="getFileIcon(file.file_type)"></i>
@@ -260,10 +260,10 @@
               <div class="file-header">
                 <h4 class="file-name">{{ file.original_name }}</h4>
                 <span class="file-status-badge" :class="getStatusBadgeClass(file.status)">
-                  <i v-if="file.status === 'processing'" class="fas fa-spinner fa-spin"></i>
-                  <i v-else-if="file.status === 'completed'" class="fas fa-check"></i>
-                  <i v-else-if="file.status === 'failed'" class="fas fa-times"></i>
-                  <i v-else-if="file.status === 'uploaded'" class="fas fa-clock"></i>
+                  <i v-if="file.status === 'processing'" class="fa-solid fa-spinner fa-spin"></i>
+                  <i v-else-if="file.status === 'completed'" class="fa-solid fa-check"></i>
+                  <i v-else-if="file.status === 'failed'" class="fa-solid fa-times"></i>
+                  <i v-else-if="file.status === 'uploaded'" class="fa-solid fa-clock"></i>
                   {{ getStatusText(file.status) }}
                 </span>
               </div>
@@ -274,7 +274,7 @@
             </div>
             <div class="file-actions">
               <button @click="() => downloadFile(file)" class="btn-modern btn-icon">
-                <i class="fas fa-download"></i>
+                <i class="fa-solid fa-download"></i>
               </button>
             </div>
           </div>
@@ -284,7 +284,7 @@
         <div v-if="projectFiles.length === 0" class="empty-files-state">
           <div class="empty-content">
             <div class="empty-icon">
-              <i class="fas fa-file-upload"></i>
+              <i class="fa-solid fa-file-upload"></i>
             </div>
             <h3>No Files Uploaded</h3>
             <p>Upload your first document to start training the AI model.</p>
@@ -938,17 +938,17 @@ Are you sure you want to upload the file?`)
     // Helper methods for file cards
     getFileIcon(fileType) {
       const iconMap = {
-        pdf: "fas fa-file-pdf",
-        xls: "fas fa-file-excel",
-        xlsx: "fas fa-file-excel",
-        txt: "fas fa-file-alt",
-        jpg: "fas fa-file-image",
-        jpeg: "fas fa-file-image",
-        png: "fas fa-file-image",
-        gif: "fas fa-file-image",
-        csv: "fas fa-file-csv",
+        pdf: "fa-solid fa-file-pdf",
+        xls: "fa-solid fa-file-excel",
+        xlsx: "fa-solid fa-file-excel",
+        txt: "fa-solid fa-file-alt",
+        jpg: "fa-solid fa-file-image",
+        jpeg: "fa-solid fa-file-image",
+        png: "fa-solid fa-file-image",
+        gif: "fa-solid fa-file-image",
+        csv: "fa-solid fa-file-csv",
       };
-      return iconMap[fileType?.toLowerCase()] || "fas fa-file";
+      return iconMap[fileType?.toLowerCase()] || "fa-solid fa-file";
     },
 
     getFileIconClass(fileType) {

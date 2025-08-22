@@ -8,12 +8,32 @@ import './assets/css/style.scss';
 import i18next from 'i18next';
 import I18NextVue from 'i18next-vue';
 import { library } from "@fortawesome/fontawesome-svg-core";
-import { faClose, faCross, faEdit, faFile, faTrash, faCopy, faEllipsisH } from "@fortawesome/free-solid-svg-icons";
+import {
+	faClose, faEdit, faFile, faTrash, faCopy, faEllipsisH,
+	faSpinner, faTimes, faCheck, faClock, faDownload, faUpload,
+	faBrain, faRedo, faComments, faUser, faRobot, faBook,
+	faFolder, faFolderOpen, faPlus, faMinus, faArrowLeft,
+	faChevronLeft, faChevronRight, faGraduationCap, faHistory,
+	faSignOutAlt, faCloudUploadAlt, faSave, faExclamationTriangle,
+	faInfoCircle, faEye, faFileAlt, faFilePdf, faFileExcel,
+	faFileImage, faFileCsv, faFileUpload, faShareAlt, faUnlock,
+	faLock, faPaperPlane
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import ToastPlugin from 'vue-toast-notification';
 import 'vue-toast-notification/dist/theme-bootstrap.css';
 
-library.add(faEdit, faTrash, faClose, faFile, faCopy, faEllipsisH);
+library.add(
+	faEdit, faTrash, faClose, faFile, faCopy, faEllipsisH,
+	faSpinner, faTimes, faCheck, faClock, faDownload, faUpload,
+	faBrain, faRedo, faComments, faUser, faRobot, faBook,
+	faFolder, faFolderOpen, faPlus, faMinus, faArrowLeft,
+	faChevronLeft, faChevronRight, faGraduationCap, faHistory,
+	faSignOutAlt, faCloudUploadAlt, faSave, faExclamationTriangle,
+	faInfoCircle, faEye, faFileAlt, faFilePdf, faFileExcel,
+	faFileImage, faFileCsv, faFileUpload, faShareAlt, faUnlock,
+	faLock, faPaperPlane
+);
 
 i18next.init({
 	lng: 'en',

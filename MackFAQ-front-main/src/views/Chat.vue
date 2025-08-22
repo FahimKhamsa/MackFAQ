@@ -45,7 +45,7 @@
 					<div v-if="!questions.length" class="empty-chat">
 						<div class="empty-content">
 							<div class="empty-icon">
-								<i class="fas fa-comments"></i>
+								<i class="fa-solid fa-comments"></i>
 							</div>
 							<h3>Start a Conversation</h3>
 							<p>
@@ -57,7 +57,7 @@
 					<div v-for="(question, index) in questions" :key="index"
 						:class="['message', question.type === 'question' ? 'user-message' : 'ai-message']">
 						<div class="message-avatar">
-							<i :class="question.type === 'question' ? 'fas fa-user' : 'fas fa-robot'"></i>
+							<i :class="question.type === 'question' ? 'fa-solid fa-user' : 'fa-solid fa-robot'"></i>
 						</div>
 						<div class="message-content">
 							<div class="message-text" v-html="formatMessage(question.text)"></div>
@@ -72,7 +72,7 @@
 							<div v-if="question.sopReferences && question.sopReferences.length" class="sop-references">
 								<h4>SOP References:</h4>
 								<div v-for="sop in question.sopReferences" :key="sop.id" class="sop-item">
-									<i class="fas fa-book"></i>
+									<i class="fa-solid fa-book"></i>
 									<span class="sop-title">{{ sop.title }}</span>
 									<span class="sop-category">{{ sop.category }}</span>
 								</div>
@@ -91,18 +91,18 @@
 								class="input-field" rows="1" ref="messageInput"></textarea>
 							<button @click="sendMessage" :disabled="!form.text.trim() || isLoading"
 								:class="['send-button', { loading: isLoading }]">
-								<i v-if="!isLoading" class="fas fa-paper-plane"></i>
-								<i v-else class="fas fa-spinner fa-spin"></i>
+								<i v-if="!isLoading" class="fa-solid fa-paper-plane"></i>
+								<i v-else class="fa-solid fa-spinner fa-spin"></i>
 							</button>
 						</div>
 						<div class="context-status" v-if="selectedProject || includeSOP">
 							<div class="status-items">
 								<span v-if="selectedProject" class="status-item project-context">
-									<i class="fas fa-folder"></i>
+									<i class="fa-solid fa-folder"></i>
 									{{ getProjectName(selectedProject) }}
 								</span>
 								<span v-if="includeSOP" class="status-item sop-context">
-									<i class="fas fa-book"></i>
+									<i class="fa-solid fa-book"></i>
 									SOP Enabled
 								</span>
 							</div>
@@ -115,17 +115,17 @@
 				<div class="sidebar-header">
 					<h3>History</h3>
 					<button @click="startNewChat" class="new-chat-btn" title="Start New Chat">
-						<i class="fas fa-plus"></i>
+						<i class="fa-solid fa-plus"></i>
 					</button>
 				</div>
 
 				<div v-if="isLoadingHistory" class="loading-state">
-					<i class="fas fa-spinner fa-spin"></i>
+					<i class="fa-solid fa-spinner fa-spin"></i>
 					<span>Loading conversations...</span>
 				</div>
 
 				<div v-else-if="!chatHistory.length" class="empty-state">
-					<i class="fas fa-comments"></i>
+					<i class="fa-solid fa-comments"></i>
 					<span v-if="selectedProject">No project conversations yet</span>
 					<span v-else>No general conversations yet</span>
 				</div>
@@ -140,7 +140,7 @@
 			</div>
 
 			<button @click="toggleHistory" class="history-toggle-button" :class="{ 'is-collapsed': isHistoryCollapsed }">
-				<i :class="isHistoryCollapsed ? 'fas fa-chevron-left' : 'fas fa-chevron-right'"></i>
+				<i :class="isHistoryCollapsed ? 'fa-solid fa-chevron-left' : 'fa-solid fa-chevron-right'"></i>
 			</button>
 		</div>
 
@@ -149,7 +149,7 @@
 				<div class="modal-header">
 					<h3>Select Files for Context</h3>
 					<button @click="closeFileModal" class="btn-modern btn-icon">
-						<i class="fas fa-times"></i>
+						<i class="fa-solid fa-times"></i>
 					</button>
 				</div>
 				<div class="modal-body">
@@ -483,16 +483,16 @@ export default {
 		},
 		getFileIcon(fileType) {
 			const iconMap = {
-				pdf: "fas fa-file-pdf",
-				xls: "fas fa-file-excel",
-				xlsx: "fas fa-file-excel",
-				txt: "fas fa-file-alt",
-				jpg: "fas fa-file-image",
-				jpeg: "fas fa-file-image",
-				png: "fas fa-file-image",
-				gif: "fas fa-file-image",
+				pdf: "fa-solid fa-file-pdf",
+				xls: "fa-solid fa-file-excel",
+				xlsx: "fa-solid fa-file-excel",
+				txt: "fa-solid fa-file-alt",
+				jpg: "fa-solid fa-file-image",
+				jpeg: "fa-solid fa-file-image",
+				png: "fa-solid fa-file-image",
+				gif: "fa-solid fa-file-image",
 			};
-			return iconMap[fileType?.toLowerCase()] || "fas fa-file";
+			return iconMap[fileType?.toLowerCase()] || "fa-solid fa-file";
 		},
 		scrollToBottom() {
 			this.$nextTick(() => {

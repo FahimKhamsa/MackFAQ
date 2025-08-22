@@ -4,7 +4,7 @@
       <div class="modal-header">
         <h3>{{ title }}</h3>
         <button @click="handleCancel" class="modal-close">
-          <i class="fas fa-times"></i>
+          <i class="fa-solid fa-times"></i>
         </button>
       </div>
 
@@ -30,7 +30,7 @@
         <button @click="handleConfirm" :disabled="isLoading"
           :class="['btn-modern', buttonClass, { 'loading': isLoading }]">
           <i v-if="!isLoading" :class="buttonIcon"></i>
-          <i v-else class="fas fa-spinner fa-spin"></i>
+          <i v-else class="fa-solid fa-spinner fa-spin"></i>
           {{ isLoading ? computedLoadingText : computedConfirmText }}
         </button>
       </div>
@@ -96,9 +96,9 @@ export default {
     },
     iconName() {
       const icons = {
-        delete: 'fas fa-exclamation-triangle',
-        warning: 'fas fa-exclamation-triangle',
-        info: 'fas fa-info-circle'
+        delete: 'fa-solid fa-exclamation-triangle',
+        warning: 'fa-solid fa-exclamation-triangle',
+        info: 'fa-solid fa-info-circle'
       };
       return icons[this.type] || icons.delete;
     },
@@ -112,9 +112,9 @@ export default {
     },
     buttonIcon() {
       const icons = {
-        delete: 'fas fa-trash',
-        warning: 'fas fa-exclamation-triangle',
-        info: 'fas fa-check'
+        delete: 'fa-solid fa-trash',
+        warning: 'fa-solid fa-exclamation-triangle',
+        info: 'fa-solid fa-check'
       };
       return icons[this.type] || icons.delete;
     },

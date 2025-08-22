@@ -5,7 +5,7 @@
 			<div class="header-content">
 				<div class="header-left">
 					<button @click="goBack" class="back-button">
-						<i class="fas fa-arrow-left"></i>
+						<i class="fa-solid fa-arrow-left"></i>
 						Back to Projects
 					</button>
 					<div class="header-title">
@@ -17,7 +17,7 @@
 				</div>
 				<div class="header-actions">
 					<button @click="triggerFileInput" class="btn-modern btn-primary">
-						<i class="fas fa-upload"></i>
+						<i class="fa-solid fa-upload"></i>
 						Upload Files
 					</button>
 				</div>
@@ -67,19 +67,19 @@
 					<div class="header-actions">
 						<button v-if="showTrainSharedButton" @click="trainWithSharedFiles" class="btn-modern btn-info"
 							:class="{ 'preloader': isTrainingShared }" :disabled="isTrainingShared">
-							<i class="fas fa-share-alt"></i>
+							<i class="fa-solid fa-share-alt"></i>
 							Train with Shared Files
 							<span v-if="sharedFilesCount > 0" class="badge">{{ sharedFilesCount }}</span>
 						</button>
 						<button @click="trainAI" class="btn-modern btn-success" :class="{ 'preloader': isTraining }"
 							:disabled="isTraining || uploadedFilesCount === 0">
-							<i class="fas fa-brain"></i>
+							<i class="fa-solid fa-brain"></i>
 							Train AI
 							<span v-if="uploadedFilesCount > 0" class="badge">{{ uploadedFilesCount }}</span>
 						</button>
 						<button @click="retryTraining" class="btn-modern btn-warning" :class="{ 'preloader': isRetrying }"
 							:disabled="isRetrying || failedFilesCount === 0">
-							<i class="fas fa-redo"></i>
+							<i class="fa-solid fa-redo"></i>
 							Retry Train
 							<span v-if="failedFilesCount > 0" class="badge">{{ failedFilesCount }}</span>
 						</button>
@@ -92,7 +92,7 @@
 						@dragover.prevent="isDragOver = true" @dragleave="isDragOver = false" @click="triggerFileInput">
 						<div class="upload-content">
 							<div class="upload-icon">
-								<i class="fas fa-cloud-upload-alt"></i>
+								<i class="fa-solid fa-cloud-upload-alt"></i>
 							</div>
 							<h4>Drop files here or click to browse</h4>
 							<p>Supports: PDF, XLS, XLSX, TXT, JPG, PNG, GIF</p>
@@ -108,7 +108,7 @@
 					<div class="files-grid" v-if="projectFiles.length">
 						<div v-for="file in projectFiles" :key="file.id" class="file-card">
 							<button @click="deleteFile(file)" class="file-delete-btn" title="Delete file">
-								<i class="fas fa-times"></i>
+								<i class="fa-solid fa-times"></i>
 							</button>
 							<div class="file-icon" :class="getFileIconClass(file.file_type)">
 								<i :class="getFileIcon(file.file_type)"></i>
@@ -117,10 +117,10 @@
 								<div class="file-header">
 									<h4 class="file-name">{{ file.original_name }}</h4>
 									<span class="file-status-badge" :class="getStatusBadgeClass(file.status)">
-										<i v-if="file.status === 'processing'" class="fas fa-spinner fa-spin"></i>
-										<i v-else-if="file.status === 'completed'" class="fas fa-check"></i>
-										<i v-else-if="file.status === 'failed'" class="fas fa-times"></i>
-										<i v-else-if="file.status === 'uploaded'" class="fas fa-clock"></i>
+										<i v-if="file.status === 'processing'" class="fa-solid fa-spinner fa-spin"></i>
+										<i v-else-if="file.status === 'completed'" class="fa-solid fa-check"></i>
+										<i v-else-if="file.status === 'failed'" class="fa-solid fa-times"></i>
+										<i v-else-if="file.status === 'uploaded'" class="fa-solid fa-clock"></i>
 										{{ getStatusText(file.status) }}
 									</span>
 								</div>
@@ -138,7 +138,7 @@
 							</div>
 							<div class="file-actions">
 								<button @click="downloadFile(file)" class="btn-modern btn-icon">
-									<i class="fas fa-download"></i>
+									<i class="fa-solid fa-download"></i>
 								</button>
 							</div>
 						</div>
@@ -148,7 +148,7 @@
 					<div v-else class="empty-files-state">
 						<div class="empty-content">
 							<div class="empty-icon">
-								<i class="fas fa-file-upload"></i>
+								<i class="fa-solid fa-file-upload"></i>
 							</div>
 							<h3>No Files Uploaded</h3>
 							<p>Upload your first document to start training the AI model.</p>
@@ -200,7 +200,7 @@
 									'btn-sm',
 									aiConfig.promptLocked ? 'btn-danger' : 'btn-success',
 								]">
-									<i :class="aiConfig.promptLocked ? 'fas fa-lock' : 'fas fa-unlock'
+									<i :class="aiConfig.promptLocked ? 'fa-solid fa-lock' : 'fa-solid fa-unlock'
 										"></i>
 									{{ aiConfig.promptLocked ? "Unlock" : "Lock" }}
 								</button>
@@ -229,7 +229,7 @@
 		<!-- Loading State -->
 		<div v-else-if="isLoading" class="loading-state">
 			<div class="loading-content">
-				<i class="fas fa-spinner fa-spin"></i>
+				<i class="fa-solid fa-spinner fa-spin"></i>
 				<p>Loading project details...</p>
 			</div>
 		</div>
@@ -238,7 +238,7 @@
 		<div v-else class="error-state">
 			<div class="error-content">
 				<div class="error-icon">
-					<i class="fas fa-exclamation-triangle"></i>
+					<i class="fa-solid fa-exclamation-triangle"></i>
 				</div>
 				<h3>Project Not Found</h3>
 				<p>The requested project could not be found.</p>
@@ -459,16 +459,16 @@ export default {
 
 		getFileIcon(fileType) {
 			const iconMap = {
-				pdf: "fas fa-file-pdf",
-				xls: "fas fa-file-excel",
-				xlsx: "fas fa-file-excel",
-				txt: "fas fa-file-alt",
-				jpg: "fas fa-file-image",
-				jpeg: "fas fa-file-image",
-				png: "fas fa-file-image",
-				gif: "fas fa-file-image",
+				pdf: "fa-solid fa-file-pdf",
+				xls: "fa-solid fa-file-excel",
+				xlsx: "fa-solid fa-file-excel",
+				txt: "fa-solid fa-file-alt",
+				jpg: "fa-solid fa-file-image",
+				jpeg: "fa-solid fa-file-image",
+				png: "fa-solid fa-file-image",
+				gif: "fa-solid fa-file-image",
 			};
-			return iconMap[fileType?.toLowerCase()] || "fas fa-file";
+			return iconMap[fileType?.toLowerCase()] || "fa-solid fa-file";
 		},
 
 		getFileIconClass(fileType) {

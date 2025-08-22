@@ -19,7 +19,7 @@
             <td class="col-name">
               <div class="conversation-name-cell">
                 <div class="conversation-icon">
-                  <i class="fas fa-comments"></i>
+                  <i class="fa-solid fa-comments"></i>
                 </div>
                 <div v-if="editingConversation === conversation.id" class="conversation-name-edit">
                   <div class="input-wrapper">
@@ -27,7 +27,7 @@
                       @keydown.escape="cancelRename" @blur="saveRename(conversation)" ref="editInput"
                       class="conversation-name-input" :disabled="renamingConversation === conversation.id">
                     <div v-if="renamingConversation === conversation.id" class="loading-spinner">
-                      <i class="fas fa-spinner fa-spin"></i>
+                      <i class="fa-solid fa-spinner fa-spin"></i>
                     </div>
                   </div>
                 </div>
@@ -49,19 +49,19 @@
                 </button>
                 <div v-if="openDropdown === conversation.id" class="dropdown-menu">
                   <!-- <button @click.stop="handleAction('view', conversation)" class="dropdown-item">
-                    <i class="fas fa-eye"></i>
+                    <i class="fa-solid fa-eye"></i>
                     View
                   </button> -->
                   <button @click.stop="handleAction('rename', conversation)" class="dropdown-item">
-                    <i class="fas fa-edit"></i>
+                    <i class="fa-solid fa-edit"></i>
                     Rename
                   </button>
                   <button @click.stop="handleAction('export', conversation)" class="dropdown-item">
-                    <i class="fas fa-download"></i>
+                    <i class="fa-solid fa-download"></i>
                     Export
                   </button>
                   <button @click.stop="handleAction('delete', conversation)" class="dropdown-item danger">
-                    <i class="fas fa-trash"></i>
+                    <i class="fa-solid fa-trash"></i>
                     Delete
                   </button>
                 </div>
@@ -76,7 +76,7 @@
     <div v-if="conversations.length === 0" class="empty-state">
       <div class="empty-content">
         <div class="empty-icon">
-          <i class="fas fa-comments"></i>
+          <i class="fa-solid fa-comments"></i>
         </div>
         <h3>No Conversations Found</h3>
         <p>Start chatting to see your conversation history here.</p>
