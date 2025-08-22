@@ -659,6 +659,115 @@ export class OpenaiKnowledgeService {
   }
 
   /**
+   * Train new project with all user's shared files
+   */
+  async trainNewProjectWithSharedFiles(projectId: string, userId: string) {
+    console.log(
+      `[OpenaiKnowledgeService - trainNewProjectWithSharedFiles] Training new project ${projectId} with shared files for user: ${userId}`,
+    );
+    try {
+      // Get the new project assistant
+      const projectAssistant = await this.projectAssistantModel.findOne({
+        where: {
+          project_id: projectId,
+          is_active: true,
+        },
+      });
+
+      if (!projectAssistant) {
+        throw new Error('Project assistant not found');
+      }
+
+      // Get default assistant (where project_id is null)
+      const defaultAssistant = await this.projectAssistantModel.findOne({
+        where: {
+          user_id: userId,
+          project_id: null,
+          is_active: true,
+        },
+      });
+
+      if (!defaultAssistant) {
+        this.logger.log(
+          `No default assistant found for user ${userId} - no shared files to train`,
+        );
+        return {
+          success: true,
+          message: 'No shared files to train - no default assistant found',
+          trainedCount: 0,
+          failedCount: 0,
+        };
+      }
+
+      // Get all completed shared files from default assistant
+      const sharedFiles = await this.projectFileModel.findAll({
+        where: {
+          assistant_id: defaultAssistant.id,
+          status: 'completed',
+          shared: true,
+        },
+      });
+
+      console.log(
+        `[trainNewProjectWithSharedFiles] Found ${sharedFiles.length} completed shared files to train on new project`,
+      );
+
+      if (sharedFiles.length === 0) {
+        return {
+          success: true,
+          message: 'No completed shared files to train',
+          trainedCount: 0,
+          failedCount: 0,
+        };
+      }
+
+      let trainedCount = 0;
+      let failedCount = 0;
+
+      // Train each shared file on the new project assistant
+      for (const file of sharedFiles) {
+        try {
+          console.log(
+            `[trainNewProjectWithSharedFiles] Training shared file ${file.filename} on project ${projectId}`,
+          );
+
+          await this.processFileForTraining(file, projectAssistant);
+          trainedCount++;
+
+          this.logger.log(
+            `Successfully trained shared file ${file.filename} on project ${projectId}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Failed to train shared file ${file.filename} on project ${projectId}:`,
+            error,
+          );
+          failedCount++;
+        }
+      }
+
+      // Update project files count after training
+      await this.updateProjectFilesCount(projectId);
+
+      const message = `New project shared files training completed: ${trainedCount} successful, ${failedCount} failed`;
+      this.logger.log(message);
+
+      return {
+        success: true,
+        message,
+        trainedCount,
+        failedCount,
+      };
+    } catch (error) {
+      this.logger.error('Error training new project with shared files:', error);
+      throw new HttpException(
+        'Failed to train new project with shared files',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
    * Train general files across all user assistants
    */
   async trainGeneralFiles(userId: string) {

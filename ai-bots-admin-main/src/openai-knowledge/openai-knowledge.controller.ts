@@ -560,4 +560,117 @@ export class OpenaiKnowledgeController {
       );
     }
   }
+
+  /**
+   * Get shared files training status for a project
+   */
+  @Get('shared-training-status/:projectId')
+  @UseGuards(JwtAuthGuard)
+  async getSharedFilesTrainingStatus(
+    @Param('projectId') projectId: string,
+    @Req() req: Request,
+  ) {
+    try {
+      const user = req.user as any;
+      if (!user || !user.id) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      // Get default assistant and its completed shared files count
+      const defaultAssistant =
+        await this.openaiKnowledgeService.getDefaultAssistant(user.id);
+      if (!defaultAssistant) {
+        return {
+          success: true,
+          needsSharedTraining: false,
+          sharedFilesCount: 0,
+          trainedSharedFilesCount: 0,
+        };
+      }
+
+      // Count completed shared files in default assistant
+      const sharedFiles = await this.openaiKnowledgeService.getProjectFiles(
+        null,
+        user.id,
+      );
+      const completedSharedFiles = sharedFiles.filter(
+        (file) => file.status === 'completed' && file.shared,
+      );
+
+      // Get project assistant and count how many shared files it has trained
+      const projectAssistant =
+        await this.openaiKnowledgeService.getProjectAssistant(projectId);
+      let trainedSharedFilesCount = 0;
+
+      if (projectAssistant && projectAssistant.vector_store_id) {
+        // This is a simplified check - in a real implementation, you might want to
+        // track which specific shared files have been trained on each project
+        const projectFiles = await this.openaiKnowledgeService.getProjectFiles(
+          projectId,
+        );
+        // For now, we'll assume if the project has any files, some shared files might be trained
+        // A more sophisticated approach would track shared file training per project
+        trainedSharedFilesCount = Math.min(
+          completedSharedFiles.length,
+          projectFiles.length,
+        );
+      }
+
+      const needsSharedTraining =
+        completedSharedFiles.length > trainedSharedFilesCount;
+
+      return {
+        success: true,
+        needsSharedTraining,
+        sharedFilesCount: completedSharedFiles.length,
+        trainedSharedFilesCount,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to get shared training status',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Train project with shared files
+   */
+  @Post('train-shared-files/:projectId')
+  @UseGuards(JwtAuthGuard)
+  async trainProjectWithSharedFiles(
+    @Param('projectId') projectId: string,
+    @Req() req: Request,
+  ) {
+    try {
+      const user = req.user as any;
+      if (!user || !user.id) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      const result =
+        await this.openaiKnowledgeService.trainNewProjectWithSharedFiles(
+          projectId,
+          user.id,
+        );
+
+      return {
+        success: result.success,
+        message: result.message,
+        trainedCount: result.trainedCount,
+        failedCount: result.failedCount,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to train project with shared files',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }

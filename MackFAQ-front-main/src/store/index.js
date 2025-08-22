@@ -754,6 +754,51 @@ export default createStore({
           throw new Error('Failed to retry general files');
         }
       }
+    },
+
+    // Shared Files Training Actions
+    async getSharedFilesTrainingStatus(context, { projectId }) {
+      try {
+        const response = await axiosConfigured.get(
+          API_URL + `/openai-knowledge/shared-training-status/${projectId}`
+        );
+        return response.data;
+      } catch (error) {
+        console.error('Failed to get shared files training status:', error);
+
+        // Return default status on error
+        return {
+          needsSharedTraining: false,
+          sharedFilesCount: 0,
+          trainedSharedFilesCount: 0,
+        };
+      }
+    },
+
+    async trainProjectWithSharedFiles(context, { projectId }) {
+      try {
+        console.log('Training project with shared files:', projectId);
+
+        const response = await axiosConfigured.post(
+          API_URL + `/openai-knowledge/train-shared-files/${projectId}`
+        );
+
+        console.log('Shared files training response:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Failed to train project with shared files:', error);
+
+        // Better error handling
+        if (error.response?.status === 401) {
+          throw new Error('Authentication required. Please log in again.');
+        } else if (error.response?.data?.message) {
+          throw new Error(error.response.data.message);
+        } else if (error.message) {
+          throw new Error(error.message);
+        } else {
+          throw new Error('Failed to train project with shared files');
+        }
+      }
     }
   },
   modules: {

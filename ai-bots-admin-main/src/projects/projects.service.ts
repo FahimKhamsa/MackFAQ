@@ -36,6 +36,8 @@ export class ProjectsService {
 
     const { dbId } = await this.openaiKnowledgeService.createOrGetAssistant(
       projectWihoutAssistant.id,
+      undefined, // customInstructions
+      payload.user_id,
     );
 
     const project = await projectWihoutAssistant.update({
@@ -43,6 +45,28 @@ export class ProjectsService {
     });
     await this.setProjectLink(project);
     await project.save();
+
+    // Auto-train with shared files
+    try {
+      this.logger.log(
+        `Auto-training project ${project.id} with shared files for user ${payload.user_id}`,
+      );
+      await this.openaiKnowledgeService.trainNewProjectWithSharedFiles(
+        project.id,
+        payload.user_id,
+      );
+      this.logger.log(
+        `Successfully auto-trained project ${project.id} with shared files`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to auto-train project ${project.id} with shared files:`,
+        error,
+      );
+      // Don't fail project creation if shared file training fails
+      // The UI will show a "Train with Shared Files" button for manual retry
+    }
+
     return project;
   }
 

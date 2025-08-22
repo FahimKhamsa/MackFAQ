@@ -65,6 +65,12 @@
 						<span class="file-count-badge">{{ projectFiles.length }} files</span>
 					</div>
 					<div class="header-actions">
+						<button v-if="showTrainSharedButton" @click="trainWithSharedFiles" class="btn-modern btn-info"
+							:class="{ 'preloader': isTrainingShared }" :disabled="isTrainingShared">
+							<i class="fas fa-share-alt"></i>
+							Train with Shared Files
+							<span v-if="sharedFilesCount > 0" class="badge">{{ sharedFilesCount }}</span>
+						</button>
 						<button @click="trainAI" class="btn-modern btn-success" :class="{ 'preloader': isTraining }"
 							:disabled="isTraining || uploadedFilesCount === 0">
 							<i class="fas fa-brain"></i>
@@ -255,7 +261,13 @@ export default {
 			isLoading: true,
 			isTraining: false,
 			isRetrying: false,
+			isTrainingShared: false,
 			pollingInterval: null,
+			sharedTrainingStatus: {
+				needsSharedTraining: false,
+				sharedFilesCount: 0,
+				trainedSharedFilesCount: 0,
+			},
 			aiConfig: {
 				selectedModel: "gpt-3.5-turbo",
 				apiProvider: "openai",
@@ -282,6 +294,13 @@ export default {
 		completedFilesCount() {
 			return this.projectFiles.filter(file => file.status === 'completed').length;
 		},
+		showTrainSharedButton() {
+			return this.sharedTrainingStatus.needsSharedTraining &&
+				this.sharedTrainingStatus.sharedFilesCount > 0;
+		},
+		sharedFilesCount() {
+			return this.sharedTrainingStatus.sharedFilesCount || 0;
+		},
 	},
 	beforeUnmount() {
 		if (this.pollingInterval) {
@@ -307,6 +326,7 @@ export default {
 				if (this.project) {
 					await this.loadProjectFiles();
 					await this.loadAIConfig();
+					await this.loadSharedTrainingStatus();
 				}
 			} catch (error) {
 				console.error("Failed to load project:", error);
@@ -665,6 +685,64 @@ export default {
 			} catch (error) {
 				console.error("Failed to download file:", error);
 				this.$toast.error("Failed to download file");
+			}
+		},
+
+		async loadSharedTrainingStatus() {
+			if (!this.project) return;
+
+			try {
+				const response = await this.$store.dispatch('getSharedFilesTrainingStatus', {
+					projectId: this.project.id
+				});
+
+				this.sharedTrainingStatus = {
+					needsSharedTraining: response.needsSharedTraining || false,
+					sharedFilesCount: response.sharedFilesCount || 0,
+					trainedSharedFilesCount: response.trainedSharedFilesCount || 0,
+				};
+			} catch (error) {
+				console.error("Failed to load shared training status:", error);
+				// Don't show error toast for this as it's not critical
+			}
+		},
+
+		async trainWithSharedFiles() {
+			if (!this.project) {
+				this.$toast.error("Project not loaded");
+				return;
+			}
+
+			if (!this.sharedTrainingStatus.needsSharedTraining) {
+				this.$toast.info("No shared files need training for this project.");
+				return;
+			}
+
+			if (!window.confirm(`Train project with ${this.sharedFilesCount} shared file(s)?`)) {
+				return;
+			}
+
+			this.isTrainingShared = true;
+
+			try {
+				const result = await this.$store.dispatch('trainProjectWithSharedFiles', {
+					projectId: this.project.id
+				});
+
+				this.$toast.success(`Shared files training completed: ${result.trainedCount} files trained successfully`);
+
+				if (result.failedCount > 0) {
+					this.$toast.warning(`${result.failedCount} shared files failed to train`);
+				}
+
+				// Refresh shared training status
+				await this.loadSharedTrainingStatus();
+
+			} catch (error) {
+				console.error('Shared files training failed:', error);
+				this.$toast.error(`Failed to train shared files: ${error.message}`);
+			} finally {
+				this.isTrainingShared = false;
 			}
 		},
 	},
