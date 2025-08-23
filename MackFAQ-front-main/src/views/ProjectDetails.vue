@@ -1,5 +1,11 @@
 <template>
 	<div class="project-details-workspace">
+		<!-- Confirmation Modal -->
+		<ConfirmationModal :show="confirmModal.show" :type="confirmModal.type" :title="confirmModal.title"
+			:message="confirmModal.message" :item-name="confirmModal.itemName" :warning-text="confirmModal.warningText"
+			:confirm-text="confirmModal.confirmText" :is-loading="confirmModal.isLoading"
+			:loading-text="confirmModal.loadingText" @confirm="handleConfirmAction" @cancel="handleCancelAction" />
+
 		<!-- Header Section -->
 		<div class="workspace-header">
 			<div class="header-content">
@@ -251,8 +257,13 @@
 </template>
 
 <script>
+import ConfirmationModal from "@/components/ConfirmationModal.vue";
+
 export default {
 	name: "ProjectDetails",
+	components: {
+		ConfirmationModal,
+	},
 	data() {
 		return {
 			project: null,
@@ -275,6 +286,19 @@ export default {
 					"You are a helpful AI assistant that analyzes project documents and provides insights based on the uploaded files and company SOPs.",
 				promptLocked: false,
 				includeSOP: true,
+			},
+			// Confirmation modal properties
+			confirmModal: {
+				show: false,
+				type: 'warning',
+				title: '',
+				message: '',
+				itemName: '',
+				warningText: '',
+				confirmText: '',
+				isLoading: false,
+				loadingText: '',
+				action: null
 			},
 		};
 	},
@@ -538,34 +562,39 @@ export default {
 				return;
 			}
 
-			if (!window.confirm(`Train AI with ${this.uploadedFilesCount} uploaded file(s)?`)) {
-				return;
-			}
+			this.showConfirmModal({
+				type: 'info',
+				title: 'Train AI',
+				message: `Train AI with ${this.uploadedFilesCount} uploaded file(s)?`,
+				confirmText: 'Train',
+				loadingText: 'Training...',
+				action: async () => {
+					this.isTraining = true;
+					this.startStatusPolling();
 
-			this.isTraining = true;
-			this.startStatusPolling();
+					try {
+						const result = await this.$store.dispatch('trainOpenAIFiles', {
+							projectId: this.project.id
+						});
 
-			try {
-				const result = await this.$store.dispatch('trainOpenAIFiles', {
-					projectId: this.project.id
-				});
+						this.$toast.success(`Training completed: ${result.trainedCount} files trained successfully`);
 
-				this.$toast.success(`Training completed: ${result.trainedCount} files trained successfully`);
+						if (result.failedCount > 0) {
+							this.$toast.error(`${result.failedCount} files failed to train`);
+						}
 
-				if (result.failedCount > 0) {
-					this.$toast.error(`${result.failedCount} files failed to train`);
+						// Refresh the files list
+						await this.loadProjectFiles();
+
+					} catch (error) {
+						console.error('Training failed:', error);
+						this.$toast.error(`Failed to train files: ${error.message}`);
+					} finally {
+						this.isTraining = false;
+						this.stopStatusPolling();
+					}
 				}
-
-				// Refresh the files list
-				await this.loadProjectFiles();
-
-			} catch (error) {
-				console.error('Training failed:', error);
-				this.$toast.error(`Failed to train files: ${error.message}`);
-			} finally {
-				this.isTraining = false;
-				this.stopStatusPolling();
-			}
+			});
 		},
 
 		async retryTraining() {
@@ -579,34 +608,39 @@ export default {
 				return;
 			}
 
-			if (!window.confirm(`Retry training ${this.failedFilesCount} failed file(s)?`)) {
-				return;
-			}
+			this.showConfirmModal({
+				type: 'warning',
+				title: 'Retry Training',
+				message: `Retry training ${this.failedFilesCount} failed file(s)?`,
+				confirmText: 'Retry',
+				loadingText: 'Retrying...',
+				action: async () => {
+					this.isRetrying = true;
+					this.startStatusPolling();
 
-			this.isRetrying = true;
-			this.startStatusPolling();
+					try {
+						const result = await this.$store.dispatch('retryFailedOpenAIFiles', {
+							projectId: this.project.id
+						});
 
-			try {
-				const result = await this.$store.dispatch('retryFailedOpenAIFiles', {
-					projectId: this.project.id
-				});
+						this.$toast.success(`Retry completed: ${result.trainedCount} files trained successfully`);
 
-				this.$toast.success(`Retry completed: ${result.trainedCount} files trained successfully`);
+						if (result.failedCount > 0) {
+							this.$toast.warning(`${result.failedCount} files still failed`);
+						}
 
-				if (result.failedCount > 0) {
-					this.$toast.warning(`${result.failedCount} files still failed`);
+						// Refresh the files list
+						await this.loadProjectFiles();
+
+					} catch (error) {
+						console.error('Retry training failed:', error);
+						this.$toast.error(`Failed to retry training: ${error.message}`);
+					} finally {
+						this.isRetrying = false;
+						this.stopStatusPolling();
+					}
 				}
-
-				// Refresh the files list
-				await this.loadProjectFiles();
-
-			} catch (error) {
-				console.error('Retry training failed:', error);
-				this.$toast.error(`Failed to retry training: ${error.message}`);
-			} finally {
-				this.isRetrying = false;
-				this.stopStatusPolling();
-			}
+			});
 		},
 
 		startStatusPolling() {
@@ -653,19 +687,27 @@ export default {
 		},
 
 		async deleteFile(file) {
-			if (confirm(`Are you sure you want to delete "${file.original_name}"?`)) {
-				try {
-					await this.$store.dispatch('deleteOpenAIFile', {
-						projectId: this.project.id,
-						fileId: file.openai_file_id
-					});
-					this.$toast.success("File deleted successfully");
-					await this.loadProjectFiles();
-				} catch (error) {
-					console.error("Failed to delete file:", error);
-					this.$toast.error("Failed to delete file");
+			this.showConfirmModal({
+				type: 'delete',
+				title: 'Delete File',
+				message: `Are you sure you want to delete "${file.original_name}"?`,
+				itemName: file.original_name,
+				confirmText: 'Delete',
+				loadingText: 'Deleting...',
+				action: async () => {
+					try {
+						await this.$store.dispatch('deleteOpenAIFile', {
+							projectId: this.project.id,
+							fileId: file.openai_file_id
+						});
+						this.$toast.success("File deleted successfully");
+						await this.loadProjectFiles();
+					} catch (error) {
+						console.error("Failed to delete file:", error);
+						this.$toast.error("Failed to delete file");
+					}
 				}
-			}
+			});
 		},
 
 		async downloadFile(file) {
@@ -718,32 +760,78 @@ export default {
 				return;
 			}
 
-			if (!window.confirm(`Train project with ${this.sharedFilesCount} shared file(s)?`)) {
-				return;
-			}
+			this.showConfirmModal({
+				type: 'info',
+				title: 'Train with Shared Files',
+				message: `Train project with ${this.sharedFilesCount} shared file(s)?`,
+				confirmText: 'Train',
+				loadingText: 'Training...',
+				action: async () => {
+					this.isTrainingShared = true;
 
-			this.isTrainingShared = true;
+					try {
+						const result = await this.$store.dispatch('trainProjectWithSharedFiles', {
+							projectId: this.project.id
+						});
 
-			try {
-				const result = await this.$store.dispatch('trainProjectWithSharedFiles', {
-					projectId: this.project.id
-				});
+						this.$toast.success(`Shared files training completed: ${result.trainedCount} files trained successfully`);
 
-				this.$toast.success(`Shared files training completed: ${result.trainedCount} files trained successfully`);
+						if (result.failedCount > 0) {
+							this.$toast.warning(`${result.failedCount} shared files failed to train`);
+						}
 
-				if (result.failedCount > 0) {
-					this.$toast.warning(`${result.failedCount} shared files failed to train`);
+						// Refresh shared training status
+						await this.loadSharedTrainingStatus();
+
+					} catch (error) {
+						console.error('Shared files training failed:', error);
+						this.$toast.error(`Failed to train shared files: ${error.message}`);
+					} finally {
+						this.isTrainingShared = false;
+					}
 				}
+			});
+		},
 
-				// Refresh shared training status
-				await this.loadSharedTrainingStatus();
+		// Modal handler methods
+		showConfirmModal(config) {
+			this.confirmModal = {
+				show: true,
+				type: config.type || 'warning',
+				title: config.title || 'Confirm Action',
+				message: config.message || 'Are you sure?',
+				itemName: config.itemName || '',
+				warningText: config.warningText || '',
+				confirmText: config.confirmText || '',
+				isLoading: false,
+				loadingText: config.loadingText || '',
+				action: config.action
+			};
+		},
 
-			} catch (error) {
-				console.error('Shared files training failed:', error);
-				this.$toast.error(`Failed to train shared files: ${error.message}`);
-			} finally {
-				this.isTrainingShared = false;
+		hideConfirmModal() {
+			this.confirmModal.show = false;
+			this.confirmModal.action = null;
+		},
+
+		async handleConfirmAction() {
+			if (this.confirmModal.action) {
+				this.confirmModal.isLoading = true;
+				try {
+					await this.confirmModal.action();
+				} catch (error) {
+					console.error('Modal action failed:', error);
+				} finally {
+					this.confirmModal.isLoading = false;
+					this.hideConfirmModal();
+				}
+			} else {
+				this.hideConfirmModal();
 			}
+		},
+
+		handleCancelAction() {
+			this.hideConfirmModal();
 		},
 	},
 };

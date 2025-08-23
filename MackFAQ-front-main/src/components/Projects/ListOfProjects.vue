@@ -36,7 +36,8 @@
                             <font-awesome-icon icon="edit" />
                         </div>
                     </td>
-                    <td style="width: 10px;" @click="() => deleteProject(project.id)"><font-awesome-icon icon="trash" />
+                    <td style="width: 10px;" @click="() => showDeleteConfirmation(project)"><font-awesome-icon
+                            icon="trash" />
                     </td>
                 </tr>
             </table>
@@ -49,13 +50,24 @@
                 {{ project.name }}
             </option>
         </select>
+
+        <!-- Delete Confirmation Modal -->
+        <ConfirmationModal :show="showDeleteModal" type="delete" title="Delete Project"
+            :item-name="projectToDelete?.name || `Project ${projectToDelete?.id}`"
+            message="Are you sure you want to delete the project" warning-text="This action cannot be undone."
+            :is-loading="isDeleting" confirm-text="Delete Project" loading-text="Deleting..." @confirm="confirmDelete"
+            @cancel="cancelDelete" />
     </div>
 </template>
 
 <script>
 import axios from '@/axios';
+import ConfirmationModal from '@/components/ConfirmationModal.vue';
 
 export default {
+    components: {
+        ConfirmationModal
+    },
     data() {
         return {
             value: this.modelValue,
@@ -63,7 +75,10 @@ export default {
             defaultProjectId: null,
             editing: {
 
-            }
+            },
+            showDeleteModal: false,
+            projectToDelete: null,
+            isDeleting: false
         }
     },
     props: ['modelValue', 'typeSelect', 'allowEmpty', 'allowGeneral'],
@@ -111,20 +126,34 @@ export default {
                 console.log(error);
             }
         },
-        async deleteProject(id) {
+        showDeleteConfirmation(project) {
+            this.projectToDelete = project;
+            this.showDeleteModal = true;
+        },
+
+        cancelDelete() {
+            this.showDeleteModal = false;
+            this.projectToDelete = null;
+            this.isDeleting = false;
+        },
+
+        async confirmDelete() {
+            if (!this.projectToDelete) return;
+
             try {
-                if (!window.confirm('Are you sure you want to delete the project?')) {
-                    return;
-                }
-                axios.post(this.API_URL + '/projects/management/delete', {
-                    id
-                }).then(() => {
-                    this.$store.dispatch('updateAvailableProjects');
-                })
+                this.isDeleting = true;
+                await axios.post(this.API_URL + '/projects/management/delete', {
+                    id: this.projectToDelete.id
+                });
+
+                this.$store.dispatch('updateAvailableProjects');
+                this.cancelDelete();
             } catch (error) {
                 console.log(error);
+                this.isDeleting = false;
             }
         },
+
         async updateProject(id, data) {
             try {
                 axios.post(this.API_URL + '/projects/management/update', {

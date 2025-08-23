@@ -1,5 +1,11 @@
 <template>
   <div class="modern-train-page">
+    <!-- Confirmation Modal -->
+    <ConfirmationModal :show="confirmModal.show" :type="confirmModal.type" :title="confirmModal.title"
+      :message="confirmModal.message" :item-name="confirmModal.itemName" :warning-text="confirmModal.warningText"
+      :confirm-text="confirmModal.confirmText" :is-loading="confirmModal.isLoading"
+      :loading-text="confirmModal.loadingText" @confirm="handleConfirmAction" @cancel="handleCancelAction" />
+
     <div class="train-header">
       <div class="header-content">
         <h1>AI Training Center</h1>
@@ -302,6 +308,7 @@ import ListOfProjects from "@/components/Projects/ListOfProjects.vue";
 import Textarea from "@/components/Textarea.vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import QAEditor from "@/components/QAEditor.vue";
+import ConfirmationModal from "@/components/ConfirmationModal.vue";
 
 export default {
   components: {
@@ -310,6 +317,7 @@ export default {
     Textarea,
     FontAwesomeIcon,
     QAEditor,
+    ConfirmationModal,
   },
   data() {
     return {
@@ -334,6 +342,19 @@ export default {
       isRetrying: false,
       pollingInterval: null,
       projectFiles: [],
+      // Confirmation modal properties
+      confirmModal: {
+        show: false,
+        type: 'warning',
+        title: '',
+        message: '',
+        itemName: '',
+        warningText: '',
+        confirmText: '',
+        isLoading: false,
+        loadingText: '',
+        action: null
+      },
     };
   },
   async created() {
@@ -633,41 +654,47 @@ export default {
       }
 
       const contextType = this.project_id && this.project ? `project "${this.project.name}"` : "general knowledge";
-      if (!window.confirm(`Retry training ${this.failedFilesCount} failed file(s) for ${contextType}?`)) {
-        return;
-      }
 
-      this.isRetrying = true;
-      this.startStatusPolling();
+      this.showConfirmModal({
+        type: 'warning',
+        title: 'Retry Training',
+        message: `Retry training ${this.failedFilesCount} failed file(s) for ${contextType}?`,
+        confirmText: 'Retry',
+        loadingText: 'Retrying...',
+        action: async () => {
+          this.isRetrying = true;
+          this.startStatusPolling();
 
-      try {
-        let result;
-        if (this.project_id && this.project) {
-          // Retry for specific project
-          result = await this.$store.dispatch('retryFailedOpenAIFiles', {
-            projectId: this.project.id
-          });
-        } else {
-          // Retry for general knowledge - we'll need to add this action to the store
-          result = await this.$store.dispatch('retryFailedGeneralFiles');
+          try {
+            let result;
+            if (this.project_id && this.project) {
+              // Retry for specific project
+              result = await this.$store.dispatch('retryFailedOpenAIFiles', {
+                projectId: this.project.id
+              });
+            } else {
+              // Retry for general knowledge - we'll need to add this action to the store
+              result = await this.$store.dispatch('retryFailedGeneralFiles');
+            }
+
+            this.$toast.success(`Retry completed: ${result.trainedCount} files trained successfully`);
+
+            if (result.failedCount > 0) {
+              this.$toast.warning(`${result.failedCount} files still failed`);
+            }
+
+            // Refresh the files list
+            await this.loadProjectFiles();
+
+          } catch (error) {
+            console.error('Retry training failed:', error);
+            this.$toast.error(`Failed to retry training: ${error.message}`);
+          } finally {
+            this.isRetrying = false;
+            this.stopStatusPolling();
+          }
         }
-
-        this.$toast.success(`Retry completed: ${result.trainedCount} files trained successfully`);
-
-        if (result.failedCount > 0) {
-          this.$toast.warning(`${result.failedCount} files still failed`);
-        }
-
-        // Refresh the files list
-        await this.loadProjectFiles();
-
-      } catch (error) {
-        console.error('Retry training failed:', error);
-        this.$toast.error(`Failed to retry training: ${error.message}`);
-      } finally {
-        this.isRetrying = false;
-        this.stopStatusPolling();
-      }
+      });
     },
 
     async chooseFile(e) {
@@ -726,41 +753,47 @@ export default {
       }
 
       const contextType = this.project_id && this.project ? `project "${this.project.name}"` : "general knowledge";
-      if (!window.confirm(`Train AI with ${this.uploadedFilesCount} uploaded file(s) for ${contextType}?`)) {
-        return;
-      }
 
-      this.isTraining = true;
-      this.startStatusPolling();
+      this.showConfirmModal({
+        type: 'info',
+        title: 'Train AI',
+        message: `Train AI with ${this.uploadedFilesCount} uploaded file(s) for ${contextType}?`,
+        confirmText: 'Train',
+        loadingText: 'Training...',
+        action: async () => {
+          this.isTraining = true;
+          this.startStatusPolling();
 
-      try {
-        let result;
-        if (this.project_id && this.project) {
-          // Train for specific project
-          result = await this.$store.dispatch('trainOpenAIFiles', {
-            projectId: this.project.id
-          });
-        } else {
-          // Train for general knowledge
-          result = await this.$store.dispatch('trainGeneralFiles');
+          try {
+            let result;
+            if (this.project_id && this.project) {
+              // Train for specific project
+              result = await this.$store.dispatch('trainOpenAIFiles', {
+                projectId: this.project.id
+              });
+            } else {
+              // Train for general knowledge
+              result = await this.$store.dispatch('trainGeneralFiles');
+            }
+
+            this.$toast.success(`Training completed: ${result.trainedCount} files trained successfully`);
+
+            if (result.failedCount > 0) {
+              this.$toast.error(`${result.failedCount} files failed to train`);
+            }
+
+            // Refresh the files list
+            await this.loadProjectFiles();
+
+          } catch (error) {
+            console.error('Training failed:', error);
+            this.$toast.error(`Failed to train files: ${error.message}`);
+          } finally {
+            this.isTraining = false;
+            this.stopStatusPolling();
+          }
         }
-
-        this.$toast.success(`Training completed: ${result.trainedCount} files trained successfully`);
-
-        if (result.failedCount > 0) {
-          this.$toast.error(`${result.failedCount} files failed to train`);
-        }
-
-        // Refresh the files list
-        await this.loadProjectFiles();
-
-      } catch (error) {
-        console.error('Training failed:', error);
-        this.$toast.error(`Failed to train files: ${error.message}`);
-      } finally {
-        this.isTraining = false;
-        this.stopStatusPolling();
-      }
+      });
     },
     closeMessage(index) {
       this.message.splice(index, 1);
@@ -818,31 +851,40 @@ export default {
         this.$toast.error(`Please select Project`, { position: "top" });
         return;
       }
-      if (
-        !window.confirm(`Are you sure you want to erase current Questions and Answers?`)
-      ) {
-        return;
-      }
-      try {
-        axios({
-          url:
-            API_URL +
-            "/api/train?bot_id=" +
-            API_BOT_ID +
-            "&project_id=" +
-            this.project_id,
-          method: "DELETE",
-        }).then((result) => {
-          if (result.data.status) {
-            this.$store.dispatch("updateProjectTrainingData", {
-              project_id: this.project_id,
+
+      this.showConfirmModal({
+        type: 'delete',
+        title: 'Clear Training Data',
+        message: 'Are you sure you want to erase current Questions and Answers?',
+        warningText: 'This action cannot be undone.',
+        confirmText: 'Delete',
+        loadingText: 'Deleting...',
+        action: async () => {
+          try {
+            const response = await axios({
+              url:
+                API_URL +
+                "/api/train?bot_id=" +
+                API_BOT_ID +
+                "&project_id=" +
+                this.project_id,
+              method: "DELETE",
             });
-          } else {
+
+            if (response.data.status) {
+              this.$store.dispatch("updateProjectTrainingData", {
+                project_id: this.project_id,
+              });
+              this.$toast.success("Training data cleared successfully");
+            } else {
+              this.$toast.error("Failed to clear training data");
+            }
+          } catch (error) {
+            console.error(error);
+            this.$toast.error("Error occurred while clearing training data");
           }
-        });
-      } catch (error) {
-        console.error(error);
-      }
+        }
+      });
     },
     async deleteUploadedKnowledge(id) {
       if (!this.project_id) {
@@ -850,20 +892,25 @@ export default {
         return;
       }
 
-      if (!window.confirm("Are you sure?")) {
-        return;
-      }
+      this.showConfirmModal({
+        type: 'delete',
+        title: 'Delete File',
+        message: 'Are you sure you want to delete this file?',
+        confirmText: 'Delete',
+        loadingText: 'Deleting...',
+        action: async () => {
+          const result = await this.$store.dispatch("deleteProjectSavedKnowledge", {
+            project_id: this.project_id,
+            id,
+          });
 
-      const result = await this.$store.dispatch("deleteProjectSavedKnowledge", {
-        project_id: this.project_id,
-        id,
+          if (!result) {
+            this.$toast.error("File is not found");
+          } else {
+            this.$toast.success("Deleted");
+          }
+        }
       });
-
-      if (!result) {
-        return this.$toast.error("File is not found");
-      }
-
-      return this.$toast.success("Deleted");
     },
     async sendForm() {
       if (!this.project_id) {
@@ -875,15 +922,18 @@ export default {
         return;
       }
       if (this.savedTrainingData.length) {
-        if (
-          !window.confirm(`The current project already contains Questions & Answers. 
-
-Uploading a new file will erase them.
-
-Are you sure you want to upload the file?`)
-        ) {
-          return;
-        }
+        this.showConfirmModal({
+          type: 'warning',
+          title: 'Overwrite Training Data',
+          message: 'The current project already contains Questions & Answers. Uploading a new file will erase them.',
+          warningText: 'This action cannot be undone.',
+          confirmText: 'Upload File',
+          loadingText: 'Uploading...',
+          action: async () => {
+            await this.performSendForm();
+          }
+        });
+        return;
       }
       this.$refs.submit.classList.add("preloader");
       const url = API_URL + "/api/train?bot_id=" + API_BOT_ID;
@@ -1036,6 +1086,98 @@ Are you sure you want to upload the file?`)
         console.error("Failed to download file:", error);
         this.$toast.error("Failed to download file");
       }
+    },
+
+    // Modal handler methods
+    showConfirmModal(config) {
+      this.confirmModal = {
+        show: true,
+        type: config.type || 'warning',
+        title: config.title || 'Confirm Action',
+        message: config.message || 'Are you sure?',
+        itemName: config.itemName || '',
+        warningText: config.warningText || '',
+        confirmText: config.confirmText || '',
+        isLoading: false,
+        loadingText: config.loadingText || '',
+        action: config.action
+      };
+    },
+
+    hideConfirmModal() {
+      this.confirmModal.show = false;
+      this.confirmModal.action = null;
+    },
+
+    async handleConfirmAction() {
+      if (this.confirmModal.action) {
+        this.confirmModal.isLoading = true;
+        try {
+          await this.confirmModal.action();
+        } catch (error) {
+          console.error('Modal action failed:', error);
+        } finally {
+          this.confirmModal.isLoading = false;
+          this.hideConfirmModal();
+        }
+      } else {
+        this.hideConfirmModal();
+      }
+    },
+
+    handleCancelAction() {
+      this.hideConfirmModal();
+    },
+
+    async performSendForm() {
+      this.$refs.submit.classList.add("preloader");
+      const url = API_URL + "/api/train?bot_id=" + API_BOT_ID;
+      let data = new FormData(this.$refs.form);
+      let headers = { enctype: "multipart/form-data" };
+
+      if (this.form.text.length && !this.$refs.file.files[0]) {
+        data = JSON.stringify({ raw: this.form.text });
+        headers = { "Content-Type": "application/json" };
+      }
+
+      try {
+        this.$refs.file.value = null;
+        this.nameFile = "FAQ File<br> pdf, csv.";
+      } catch (ex) {
+        console.error(ex);
+      }
+
+      try {
+        await axios({ url: url, data: data, method: "POST", headers: headers }).then(
+          async (result) => {
+            if (result.data.status) {
+              this.message = result.data.data.rows;
+
+              this.reload = true;
+
+              await this.$store.dispatch("updateProjectSavedKnowledge", {
+                project_id: this.project_id,
+              });
+              await this.$store.dispatch("updateProjectTrainingData", {
+                project_id: this.project_id,
+              });
+
+              setTimeout(() => {
+                this.reload = false;
+              }, 100);
+
+              return this.$toast.success("File loaded");
+            } else {
+              return this.$toast.error("File loading failed");
+            }
+          }
+        );
+      } catch (error) {
+        console.log(error);
+      }
+
+      this.$refs.submit.classList.remove("preloader");
+      this.$refs.form.reset();
     },
   },
 };

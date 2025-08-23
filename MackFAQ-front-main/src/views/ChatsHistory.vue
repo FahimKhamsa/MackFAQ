@@ -121,6 +121,12 @@
         message="Are you sure you want to delete the conversation" warning-text="This action cannot be undone."
         :is-loading="isDeleting" confirm-text="Delete Conversation" loading-text="Deleting..." @confirm="confirmDelete"
         @cancel="cancelDelete" />
+
+    <!-- Overwrite Confirmation Modal -->
+    <ConfirmationModal :show="showOverwriteModal" type="warning" title="Overwrite Questions & Answers"
+        message="The current project already contains Questions & Answers. Uploading a new file will erase them."
+        warning-text="This action cannot be undone." :is-loading="isOverwriting" confirm-text="Upload File"
+        loading-text="Saving..." @confirm="confirmOverwrite" @cancel="cancelOverwrite" />
 </template>
 
 <script>
@@ -157,6 +163,8 @@ export default {
             conversationToDelete: null,
             isDeleting: false,
             generalConversations: [], // For storing general chat conversations
+            showOverwriteModal: false,
+            isOverwriting: false,
 
             chatsTimer: null,
         }
@@ -319,14 +327,13 @@ export default {
                 // return;
             }
             if (this.savedTrainingData.length) {
-                if (!window.confirm(`The current project already contains Questions & Answers. 
-
-Uploading a new file will erase them.
-
-Are you sure you want to upload the file?`)) {
-                    return;
-                }
+                this.showOverwriteModal = true;
+                return;
             }
+            await this.performSaveQA();
+        },
+
+        async performSaveQA() {
             this.$refs.submit.classList.add('preloader');
             const url = API_URL + '/api/train?bot_id=' + API_BOT_ID;
 
@@ -362,6 +369,22 @@ Are you sure you want to upload the file?`)) {
             savingToast.dismiss();
 
             this.$toast.success('Saved', { position: 'top' })
+        },
+
+        cancelOverwrite() {
+            this.showOverwriteModal = false;
+            this.isOverwriting = false;
+        },
+
+        async confirmOverwrite() {
+            try {
+                this.isOverwriting = true;
+                await this.performSaveQA();
+                this.cancelOverwrite();
+            } catch (error) {
+                console.error('Failed to save QA:', error);
+                this.isOverwriting = false;
+            }
         },
 
         handleConversationSelected(conversation) {
